@@ -19,6 +19,9 @@ Working status/roadmap doc for `clients-service`. For the detailed change histor
 - **Documentation.** `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, `docs/API.md`,
   `docs/CHANGELOG.md`, and this plan. `CLAUDE.md` kept in sync with all of the above as the single
   source of truth for AI-agent guidance.
+- **Coverage tooling.** `jacoco-maven-plugin` bound to `./mvnw test`, reporting to
+  `target/site/jacoco/`. JUnit 5/AssertJ/Mockito were already available via `spring-boot-starter-test` —
+  no new test dependency needed for TDD, just the coverage visibility.
 
 There is still **no business logic**: no `spring-boot-starter-web`, no entities, no repositories, no
 controllers. The app currently starts, initializes JPA/Hibernate against Postgres, and exits — nothing
@@ -40,7 +43,8 @@ priorities change.
 6. **`spring-boot-starter-actuator`** for health/metrics — also gives the Dockerfile a real
    `HEALTHCHECK` target instead of none.
 7. **API documentation** — `springdoc-openapi` for a live OpenAPI/Swagger UI, then fill in
-   `docs/API.md`'s endpoint table as routes land.
+   `docs/API.md`'s endpoint table as routes land. Blocked on step 1 (needs the web starter and at least
+   one controller to have anything to document).
 8. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
    automated gate beyond running tests locally.
 9. **Testing depth.** Slice tests (`@WebMvcTest`, `@DataJpaTest`) per feature, plus the existing

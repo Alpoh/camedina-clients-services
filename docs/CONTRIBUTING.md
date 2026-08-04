@@ -30,6 +30,11 @@ Always use the Maven wrapper (`./mvnw`), not a system `mvn`, so builds use the v
 The first `test` or `spring-boot:run` will pull the `postgres:17.2` image, so expect it to be slower
 than subsequent runs.
 
+`./mvnw test` also produces a JaCoCo coverage report at `target/site/jacoco/index.html` — open it in a
+browser to see line/branch coverage per class. JUnit 5, AssertJ, and Mockito come from
+`spring-boot-starter-test` already on the classpath; no extra test dependencies are needed to write
+unit or slice tests.
+
 ## Running in Docker
 
 ```bash

@@ -16,7 +16,8 @@ lives under `[Unreleased]`.
 - `.dockerignore` for lean Docker build contexts.
 - Comprehensive `.gitignore` covering Java/Maven build artifacts, IntelliJ (`.idea/`, `.run/`, `out/`),
   Eclipse/STS, NetBeans, VS Code, env/secrets files, and OS cruft.
-- `docs/` folder (this changelog, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `API.md`).
+- `docs/` folder (this changelog, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `API.md`, `PLAN.md`).
+- `jacoco-maven-plugin`, bound to `./mvnw test`, reporting coverage to `target/site/jacoco/`.
 
 ### Changed
 - Renamed group/artifact from `co.medina.portafolio:camedina-clients-service` to

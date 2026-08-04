@@ -81,6 +81,9 @@ full list aimed at AI coding agents):
 - `spring.docker.compose.skip.in-tests=false` is set, so any test that boots the Spring context also
   starts the real Postgres container from `compose.yaml` — tests exercise the real database rather than
   H2 or mocks. This requires Docker to be running locally.
+- `jacoco-maven-plugin` is bound to `./mvnw test` (agent attached via `prepare-agent`, HTML/XML/CSV
+  report generated in the `test` phase itself). Reports land in `target/site/jacoco/`; no coverage
+  threshold is enforced yet.
 
 ## Current status / roadmap
 
