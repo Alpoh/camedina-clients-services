@@ -1,0 +1,32 @@
+# Changelog
+
+All notable changes to this project are documented in this file. The format is based on
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
+[Semantic Versioning](https://semver.org/) once it has its first release — until then, everything below
+lives under `[Unreleased]`.
+
+## [Unreleased] — 0.0.2-SNAPSHOT
+
+### Added
+- Postgres persistence: `spring-boot-starter-data-jpa` + `org.postgresql:postgresql`, backed locally by
+  a real `postgres:17.2` service in `compose.yaml`, auto-wired via `spring-boot-docker-compose` for both
+  `spring-boot:run` and `./mvnw test`.
+- `Dockerfile`: multi-stage build (Eclipse Temurin 26 JDK → JRE), non-root runtime user, Spring Boot 4
+  `tools` jarmode extraction for layer-friendly image builds.
+- `.dockerignore` for lean Docker build contexts.
+- Comprehensive `.gitignore` covering Java/Maven build artifacts, IntelliJ (`.idea/`, `.run/`, `out/`),
+  Eclipse/STS, NetBeans, VS Code, env/secrets files, and OS cruft.
+- `docs/` folder (this changelog, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `API.md`).
+
+### Changed
+- Renamed group/artifact from `co.medina.portafolio:camedina-clients-service` to
+  `co.medina.portfolio:clients-service` (fixing the `portafolio` typo and dropping the redundant
+  `camedina-` prefix).
+- Base package renamed from `co.medina.portafolio.camedinaclientsservice` to
+  `co.medina.portfolio.clientsservice`.
+
+## 0.0.1-SNAPSHOT
+
+Initial Spring Initializr scaffold: `co.medina.portafolio:camedina-clients-service`, Spring Boot 4.1.0,
+Java 26, Lombok + `spring-boot-configuration-processor`, empty `@SpringBootApplication` class, no
+business logic.
