@@ -8,11 +8,11 @@
         <version>4.1.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>co.medina.portafolio</groupId>
-    <artifactId>camedina-clients-service</artifactId>
+    <groupId>co.medina.portfolio</groupId>
+    <artifactId>clients-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>camedina-clients-service</name>
-    <description>camedina-clients-service</description>
+    <name>clients-service</name>
+    <description>clients-service</description>
     <url/>
     <licenses>
         <license/>

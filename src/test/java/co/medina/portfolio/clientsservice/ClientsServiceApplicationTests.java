@@ -1,10 +1,10 @@
-package co.medina.portafolio.camedinaclientsservice;
+package co.medina.portfolio.clientsservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class CamedinaClientsServiceApplicationTests {
+class ClientsServiceApplicationTests {
 
     @Test
     void contextLoads() {
