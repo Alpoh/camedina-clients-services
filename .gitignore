@@ -4,6 +4,37 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+### Java ###
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+### Maven ###
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.flattened-pom.xml
+
+### Spring Boot ###
+application-local.properties
+application-local.yml
+application-local.yaml
+*.log
+logs/
+
+### Env / secrets ###
+.env
+.env.*
+!.env.example
+
 ### STS ###
 .apt_generated
 .classpath
@@ -14,10 +45,23 @@ target/
 .sts4-cache
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
+out/
+.run/
+
+### Eclipse ###
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.recommenders/
 
 ### NetBeans ###
 /nbproject/private/
@@ -31,3 +75,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### OS ###
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
