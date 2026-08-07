@@ -10,6 +10,7 @@ no hexagonal/layered top-level structure — see [Package layout](#package-layou
 | Language        | Java 26                                                              |
 | Framework       | Spring Boot 4.1.0 (via `spring-boot-starter-parent`)                 |
 | Build           | Maven (wrapper-pinned, `./mvnw`)                                     |
+| Web             | Spring MVC (`spring-boot-starter-web`), embedded Tomcat              |
 | Persistence     | Spring Data JPA + Hibernate, PostgreSQL                              |
 | Local infra     | Docker Compose (`compose.yaml`), auto-wired by `spring-boot-docker-compose` |
 | Packaging       | Multi-stage `Dockerfile` (Eclipse Temurin 26), or Cloud Native Buildpacks via `spring-boot:build-image` |
@@ -87,7 +88,6 @@ full list aimed at AI coding agents):
 
 ## Current status / roadmap
 
-No business logic exists yet — no controllers, entities, or repositories. There is also no
-`spring-boot-starter-web` on the classpath yet, so the application currently starts, initializes the
-JPA/Hibernate stack, and exits (nothing keeps the JVM alive without a web server). Adding the first
-feature package (e.g. `client/`) and a web starter is the natural next step.
+`spring-boot-starter-web` is on the classpath: the application starts an embedded Tomcat and stays
+running. No business logic exists yet — no controllers, entities, or repositories. Adding the first
+feature package (e.g. `client/`) is the natural next step.

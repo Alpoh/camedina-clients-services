@@ -22,36 +22,37 @@ Working status/roadmap doc for `clients-service`. For the detailed change histor
 - **Coverage tooling.** `jacoco-maven-plugin` bound to `./mvnw test`, reporting to
   `target/site/jacoco/`. JUnit 5/AssertJ/Mockito were already available via `spring-boot-starter-test` —
   no new test dependency needed for TDD, just the coverage visibility.
+- **Web starter.** `spring-boot-starter-web` added (replacing the bare `spring-boot-starter`, which it
+  pulls in transitively). The app now starts an embedded Tomcat and stays running instead of exiting
+  right after context initialization — verified locally via `spring-boot:run` against the compose
+  Postgres.
 
-There is still **no business logic**: no `spring-boot-starter-web`, no entities, no repositories, no
-controllers. The app currently starts, initializes JPA/Hibernate against Postgres, and exits — nothing
-keeps the JVM alive without a web server.
+There is still **no business logic**: no entities, no repositories, no controllers.
 
 ## Suggested next steps
 
 Roughly in the order they unblock each other; not a hard commitment, just a proposed path — revisit as
 priorities change.
 
-1. **Add `spring-boot-starter-web`** so the app actually serves HTTP and stays running.
-2. **Add `spring-boot-starter-validation`** for `@Valid`/Bean Validation annotations on request DTOs.
-3. **Pick a schema-migration strategy** (Flyway or Liquibase) instead of relying on Hibernate
+1. **Add `spring-boot-starter-validation`** for `@Valid`/Bean Validation annotations on request DTOs.
+2. **Pick a schema-migration strategy** (Flyway or Liquibase) instead of relying on Hibernate
    `ddl-auto` — decide before the first entity lands, since retrofitting migrations later is more work.
-4. **Build the first feature vertical** (e.g. `client/`) as the template for package-by-feature:
+3. **Build the first feature vertical** (e.g. `client/`) as the template for package-by-feature:
    entity, repository, request/response `record` DTOs, service, controller.
-5. **Global error handling.** `@ControllerAdvice` mapping validation/domain errors to `ProblemDetail`
+4. **Global error handling.** `@ControllerAdvice` mapping validation/domain errors to `ProblemDetail`
    (RFC 7807), per the convention in `docs/ARCHITECTURE.md`.
-6. **`spring-boot-starter-actuator`** for health/metrics — also gives the Dockerfile a real
+5. **`spring-boot-starter-actuator`** for health/metrics — also gives the Dockerfile a real
    `HEALTHCHECK` target instead of none.
-7. **API documentation** — `springdoc-openapi` for a live OpenAPI/Swagger UI, then fill in
-   `docs/API.md`'s endpoint table as routes land. Blocked on step 1 (needs the web starter and at least
-   one controller to have anything to document).
-8. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
+6. **API documentation** — `springdoc-openapi` for a live OpenAPI/Swagger UI, then fill in
+   `docs/API.md`'s endpoint table as routes land. Now unblocked (web starter is in); still needs at
+   least one controller to have anything to document.
+7. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
    automated gate beyond running tests locally.
-9. **Testing depth.** Slice tests (`@WebMvcTest`, `@DataJpaTest`) per feature, plus the existing
+8. **Testing depth.** Slice tests (`@WebMvcTest`, `@DataJpaTest`) per feature, plus the existing
    docker-compose-backed `@SpringBootTest` for full-context smoke coverage.
-10. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's I/O-bound work
-    (DB calls, external HTTP) worth benefiting from it.
-11. **Security** (Spring Security / auth) once there's something worth protecting.
+9. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's I/O-bound work
+   (DB calls, external HTTP) worth benefiting from it.
+10. **Security** (Spring Security / auth) once there's something worth protecting.
 
 ## How to update this doc
 

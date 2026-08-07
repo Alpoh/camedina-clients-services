@@ -5,9 +5,12 @@ All notable changes to this project are documented in this file. The format is b
 [Semantic Versioning](https://semver.org/) once it has its first release — until then, everything below
 lives under `[Unreleased]`.
 
-## [Unreleased] — 0.0.2-SNAPSHOT
+## [Unreleased] — 0.0.3-SNAPSHOT
 
 ### Added
+- `spring-boot-starter-web`, replacing the bare `spring-boot-starter` (pulled in transitively). The app
+  now starts an embedded Tomcat and stays running instead of exiting right after context
+  initialization.
 - Postgres persistence: `spring-boot-starter-data-jpa` + `org.postgresql:postgresql`, backed locally by
   a real `postgres:17.2` service in `compose.yaml`, auto-wired via `spring-boot-docker-compose` for both
   `spring-boot:run` and `./mvnw test`.
