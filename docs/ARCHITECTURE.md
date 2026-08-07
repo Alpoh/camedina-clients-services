@@ -13,6 +13,7 @@ no hexagonal/layered top-level structure — see [Package layout](#package-layou
 | Web             | Spring MVC (`spring-boot-starter-web`), embedded Tomcat              |
 | Persistence     | Spring Data JPA + Hibernate, PostgreSQL                              |
 | Migrations      | Flyway (`spring-boot-starter-flyway` + `flyway-database-postgresql`) |
+| API docs        | `springdoc-openapi-starter-webmvc-ui` — live OpenAPI 3.1 + Swagger UI, generated from code |
 | Local infra     | Docker Compose (`compose.yaml`), auto-wired by `spring-boot-docker-compose` |
 | Packaging       | Multi-stage `Dockerfile` (Eclipse Temurin 26), or Cloud Native Buildpacks via `spring-boot:build-image` |
 | Boilerplate     | Lombok (constructor/getter generation only — not `@Data` on entities) |

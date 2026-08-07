@@ -38,12 +38,17 @@ lives under `[Unreleased]`.
   neither `bash` nor `curl`) — also exercises DB connectivity, not just Tomcat liveness. Verified against
   the compose Postgres via a manual `docker build` + `docker run` smoke test, including the full REST API
   working end-to-end from inside the container.
+- `springdoc-openapi-starter-webmvc-ui:2.8.6` — live OpenAPI 3.1 spec at `/v3/api-docs` and Swagger UI at
+  `/swagger-ui/index.html`, generated entirely from the existing controllers/DTOs/validation annotations.
+  Verified end-to-end: all 6 controllers/15 routes and every request/response schema show up correctly.
 
 ### Changed
 - Both `Dockerfile` stages switched from Debian-based `eclipse-temurin:26-jdk`/`26-jre` to
   `26-jdk-alpine`/`26-jre-alpine` — ~40% smaller runtime image (~312MB vs. ~517MB). Required switching
   `addgroup`/`adduser` to BusyBox's short-flag syntax (`-S`/`-G`) instead of Debian shadow-utils' long
   flags.
+- `compose.yaml`'s Postgres switched from `postgres:17.2` to `postgres:17.2-alpine` (~36% smaller:
+  ~398MB vs. ~620MB); `pg_isready` healthcheck needed no changes.
 - Renamed group/artifact from `co.medina.portafolio:camedina-clients-service` to
   `co.medina.portfolio:clients-service` (fixing the `portafolio` typo and dropping the redundant
   `camedina-` prefix).

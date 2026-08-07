@@ -6,6 +6,12 @@ The `client` feature vertical is implemented: `Client` plus its `Phone` and `Add
 (see `docs/ARCHITECTURE.md`). This document describes the conventions endpoints follow, and should be
 kept in sync with the real endpoint reference below as more are added.
 
+**Interactive docs:** with the app running (`./mvnw spring-boot:run`), the full API is browsable at
+[`/swagger-ui/index.html`](http://localhost:8080/swagger-ui/index.html) (raw OpenAPI 3.1 spec at
+`/v3/api-docs`) — generated live from the controllers/DTOs/validation annotations via
+`springdoc-openapi-starter-webmvc-ui`, not hand-maintained. Not access-controlled yet; lock it down
+outside dev/staging once the app has real auth (see `docs/PLAN.md`).
+
 ## Conventions (for endpoints as they're added)
 
 - **Base path:** `/api/v1/...` — version the API from the start via the URL path.

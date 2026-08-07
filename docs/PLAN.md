@@ -53,10 +53,17 @@ Working status/roadmap doc for `clients-service`. For the detailed change histor
   BusyBox's short-flag syntax (`-S`/`-G`, not the Debian shadow-utils long flags) and writing the
   `HEALTHCHECK` around BusyBox `wget` instead of `bash`'s `/dev/tcp` (Alpine has neither `bash` nor
   `curl`). The healthcheck hits `/api/v1/clients` via `wget --spider`, so it now also verifies DB
-  readiness, not just that Tomcat is listening. Also fixed `jacoco-maven-plugin`'s version being unpinned
-  (silently resolving to "latest release" at build time instead of anything managed by
-  `spring-boot-starter-parent`, which the docs had wrongly assumed) by pinning it explicitly in
-  `pom.xml`.
+  readiness, not just that Tomcat is listening. `compose.yaml`'s Postgres also switched to
+  `postgres:17.2-alpine` (~36% smaller: ~398MB vs. ~620MB) — its `pg_isready` healthcheck needed no
+  changes. Also fixed `jacoco-maven-plugin`'s version being unpinned (silently resolving to "latest
+  release" at build time instead of anything managed by `spring-boot-starter-parent`, which the docs had
+  wrongly assumed) by pinning it explicitly in `pom.xml`.
+- **API documentation.** `springdoc-openapi-starter-webmvc-ui` (`2.8.6`) added — generates a live OpenAPI
+  3.1 spec (`/v3/api-docs`) and Swagger UI (`/swagger-ui/index.html`) entirely from the existing
+  controllers/DTOs/Bean Validation annotations, no hand-written spec. Verified working end-to-end
+  (all 6 controllers/15 routes and every request/response schema showed up correctly) despite this
+  version predating Spring Boot 4.1/Spring Framework 7's release by over a year — worth re-checking for a
+  newer springdoc release later, but functionally solid today.
 
 There is still only one feature vertical (`client/`) — no other resources yet.
 
@@ -68,14 +75,13 @@ priorities change.
 1. **`spring-boot-starter-actuator`** for health/metrics — would let the Dockerfile's `HEALTHCHECK`
    target a proper `/actuator/health` endpoint instead of the business `/api/v1/clients` route it
    currently (pragmatically) reuses.
-2. **API documentation** — `springdoc-openapi` for a live OpenAPI/Swagger UI, generated from the
-   existing controllers/DTOs.
-3. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
+2. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
    automated gate beyond running tests locally.
-4. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
+3. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
    (DB calls, external HTTP) worth benefiting from it.
-5. **Security** (Spring Security / auth) once there's something worth protecting.
-6. **A second feature vertical** to validate the package-by-feature pattern generalizes beyond
+4. **Security** (Spring Security / auth) once there's something worth protecting — also when this
+   lands, lock down `/swagger-ui/**`/`/v3/api-docs/**` outside dev/staging per `CLAUDE.md`'s convention.
+5. **A second feature vertical** to validate the package-by-feature pattern generalizes beyond
    `client/` — also the trigger to hoist `NotFoundException`/`ConflictException`/`GlobalExceptionHandler`
    out of the `client` package into a shared one.
 

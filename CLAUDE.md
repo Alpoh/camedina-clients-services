@@ -38,6 +38,12 @@ real Postgres service, and `spring-boot-docker-compose` starts/wires it automati
   `@MockitoBean`/`@MockitoSpyBean`). Note Spring Boot 4.1 also defaults to Jackson 3.x, whose Maven
   coordinates and base package moved from `com.fasterxml.jackson.*` to `tools.jackson.*` — e.g.
   `ObjectMapper` is `tools.jackson.databind.ObjectMapper`, not the classic Jackson 2 package.
+- API docs: `springdoc-openapi-starter-webmvc-ui:2.8.6` — Swagger UI at `/swagger-ui/index.html`, raw
+  spec at `/v3/api-docs`, generated from the existing controllers/DTOs (no hand-written spec file).
+  Verified working end-to-end even though this springdoc release predates Spring Boot 4.1/Spring
+  Framework 7 by over a year (it pulls classic Jackson 2 alongside the app's Jackson 3, which is fine —
+  springdoc uses its own internal `ObjectMapper` for spec generation, separate from Spring MVC's message
+  converters). Re-check for a newer springdoc release periodically.
 
 **Toolchain note:** this repo targets Java 26. The system default `java` may still be JDK 21
 (`update-alternatives --list java`); a JDK 26 (Azul Zulu) is installed at `~/.jdks/azul-26.0.1` (added
