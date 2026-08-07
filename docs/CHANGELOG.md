@@ -21,6 +21,10 @@ lives under `[Unreleased]`.
   Eclipse/STS, NetBeans, VS Code, env/secrets files, and OS cruft.
 - `docs/` folder (this changelog, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `API.md`, `PLAN.md`).
 - `jacoco-maven-plugin`, bound to `./mvnw test`, reporting coverage to `target/site/jacoco/`.
+- `spring-boot-starter-validation` for `@Valid`/Bean Validation annotations on request DTOs.
+- Flyway schema migrations: `spring-boot-starter-flyway` + `flyway-database-postgresql`, with
+  `spring.jpa.hibernate.ddl-auto=validate` so Hibernate validates against the schema Flyway owns instead
+  of generating DDL. No migration scripts yet — none needed until the first entity lands.
 
 ### Changed
 - Renamed group/artifact from `co.medina.portafolio:camedina-clients-service` to

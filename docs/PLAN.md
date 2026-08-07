@@ -26,6 +26,13 @@ Working status/roadmap doc for `clients-service`. For the detailed change histor
   pulls in transitively). The app now starts an embedded Tomcat and stays running instead of exiting
   right after context initialization — verified locally via `spring-boot:run` against the compose
   Postgres.
+- **Bean Validation.** `spring-boot-starter-validation` added for `@Valid`/Bean Validation annotations
+  on request DTOs (nothing to validate yet, no controllers exist).
+- **Schema-migration strategy.** Flyway chosen over Liquibase: `spring-boot-starter-flyway` +
+  `flyway-database-postgresql` added, `spring.jpa.hibernate.ddl-auto=validate` set so Hibernate only
+  validates entities against the schema Flyway owns. Verified via `./mvnw test` — Flyway runs against
+  the compose Postgres on startup, finds zero migrations (expected, no entities yet) and doesn't fail.
+  No `db/migration` scripts exist yet; the first one lands with the first `@Entity`.
 
 There is still **no business logic**: no entities, no repositories, no controllers.
 
@@ -34,25 +41,23 @@ There is still **no business logic**: no entities, no repositories, no controlle
 Roughly in the order they unblock each other; not a hard commitment, just a proposed path — revisit as
 priorities change.
 
-1. **Add `spring-boot-starter-validation`** for `@Valid`/Bean Validation annotations on request DTOs.
-2. **Pick a schema-migration strategy** (Flyway or Liquibase) instead of relying on Hibernate
-   `ddl-auto` — decide before the first entity lands, since retrofitting migrations later is more work.
-3. **Build the first feature vertical** (e.g. `client/`) as the template for package-by-feature:
-   entity, repository, request/response `record` DTOs, service, controller.
-4. **Global error handling.** `@ControllerAdvice` mapping validation/domain errors to `ProblemDetail`
+1. **Build the first feature vertical** (e.g. `client/`) as the template for package-by-feature:
+   entity, repository, request/response `record` DTOs, service, controller, and its first Flyway
+   migration under `src/main/resources/db/migration` (e.g. `V1__create_client_table.sql`).
+2. **Global error handling.** `@ControllerAdvice` mapping validation/domain errors to `ProblemDetail`
    (RFC 7807), per the convention in `docs/ARCHITECTURE.md`.
-5. **`spring-boot-starter-actuator`** for health/metrics — also gives the Dockerfile a real
+3. **`spring-boot-starter-actuator`** for health/metrics — also gives the Dockerfile a real
    `HEALTHCHECK` target instead of none.
-6. **API documentation** — `springdoc-openapi` for a live OpenAPI/Swagger UI, then fill in
+4. **API documentation** — `springdoc-openapi` for a live OpenAPI/Swagger UI, then fill in
    `docs/API.md`'s endpoint table as routes land. Now unblocked (web starter is in); still needs at
    least one controller to have anything to document.
-7. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
+5. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
    automated gate beyond running tests locally.
-8. **Testing depth.** Slice tests (`@WebMvcTest`, `@DataJpaTest`) per feature, plus the existing
+6. **Testing depth.** Slice tests (`@WebMvcTest`, `@DataJpaTest`) per feature, plus the existing
    docker-compose-backed `@SpringBootTest` for full-context smoke coverage.
-9. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's I/O-bound work
+7. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's I/O-bound work
    (DB calls, external HTTP) worth benefiting from it.
-10. **Security** (Spring Security / auth) once there's something worth protecting.
+8. **Security** (Spring Security / auth) once there's something worth protecting.
 
 ## How to update this doc
 

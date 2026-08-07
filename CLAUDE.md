@@ -18,6 +18,11 @@ automatically for both `spring-boot:run` and `./mvnw test`.
 - Persistence: `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime) — no entities/
   repositories yet, but the `DataSource`/Hibernate stack is live and requires a reachable Postgres to
   start the context (local dev gets this for free from `compose.yaml`)
+- Migrations: Flyway (`spring-boot-starter-flyway` + `flyway-database-postgresql`, runtime) owns the
+  schema; `spring.jpa.hibernate.ddl-auto=validate` means Hibernate never generates DDL, only validates
+  entities against it. Flyway runs on every startup (`spring-boot:run` and `./mvnw test`) against
+  `classpath:db/migration` (default location) — currently empty since there are no entities yet. The
+  first migration (`V1__*.sql`) should land together with the first `@Entity`, not before.
 
 **Toolchain note:** this repo targets Java 26. The system default `java` may still be JDK 21
 (`update-alternatives --list java`); a JDK 26 (Azul Zulu) is installed at `~/.jdks/azul-26.0.1` (added

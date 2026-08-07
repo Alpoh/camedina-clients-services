@@ -12,6 +12,7 @@ no hexagonal/layered top-level structure — see [Package layout](#package-layou
 | Build           | Maven (wrapper-pinned, `./mvnw`)                                     |
 | Web             | Spring MVC (`spring-boot-starter-web`), embedded Tomcat              |
 | Persistence     | Spring Data JPA + Hibernate, PostgreSQL                              |
+| Migrations      | Flyway (`spring-boot-starter-flyway` + `flyway-database-postgresql`) |
 | Local infra     | Docker Compose (`compose.yaml`), auto-wired by `spring-boot-docker-compose` |
 | Packaging       | Multi-stage `Dockerfile` (Eclipse Temurin 26), or Cloud Native Buildpacks via `spring-boot:build-image` |
 | Boilerplate     | Lombok (constructor/getter generation only — not `@Data` on entities) |
@@ -42,6 +43,13 @@ src/main/java/co/medina/portfolio/clientsservice/
 - `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime) are on the classpath.
 - No entities or repositories exist yet — the JPA/Hibernate auto-configuration is wired but idle until
   the first `@Entity` is added.
+- **Schema migrations own the schema, Hibernate only validates.** `spring-boot-starter-flyway` +
+  `flyway-database-postgresql` are on the runtime classpath, and `spring.jpa.hibernate.ddl-auto=validate`
+  is set — Hibernate never generates DDL; it just checks entities against whatever Flyway has applied.
+  Flyway runs automatically on startup (`spring-boot:run` and `./mvnw test`) against migrations on
+  `classpath:db/migration` (default location), auto-configured for the same Postgres instance
+  `spring-boot-docker-compose` wires up. No migration scripts exist yet since there are no entities —
+  the first `V1__*.sql` lands together with the first `@Entity`.
 - Local dev and tests get a real Postgres instance for free: `compose.yaml` defines a `postgres:17.2`
   service, and `spring-boot-docker-compose` starts it and injects `spring.datasource.*` automatically for
   both `./mvnw spring-boot:run` and `./mvnw test` (see [Local development & Docker](#local-development--docker)).
