@@ -34,8 +34,16 @@ lives under `[Unreleased]`.
   `GlobalExceptionHandler` (`@RestControllerAdvice`), plus `MethodArgumentNotValidException` → 400.
 - Test coverage for the client vertical: `@DataJpaTest` repository tests, `@WebMvcTest` controller
   tests, and plain Mockito service unit tests.
+- `Dockerfile` `HEALTHCHECK`: BusyBox `wget --spider -q -T 3` against `/api/v1/clients` (Alpine has
+  neither `bash` nor `curl`) — also exercises DB connectivity, not just Tomcat liveness. Verified against
+  the compose Postgres via a manual `docker build` + `docker run` smoke test, including the full REST API
+  working end-to-end from inside the container.
 
 ### Changed
+- Both `Dockerfile` stages switched from Debian-based `eclipse-temurin:26-jdk`/`26-jre` to
+  `26-jdk-alpine`/`26-jre-alpine` — ~40% smaller runtime image (~312MB vs. ~517MB). Required switching
+  `addgroup`/`adduser` to BusyBox's short-flag syntax (`-S`/`-G`) instead of Debian shadow-utils' long
+  flags.
 - Renamed group/artifact from `co.medina.portafolio:camedina-clients-service` to
   `co.medina.portfolio:clients-service` (fixing the `portafolio` typo and dropping the redundant
   `camedina-` prefix).
@@ -45,6 +53,11 @@ lives under `[Unreleased]`.
   `spring-boot-starter-data-jpa-test` (each transitively includes it). Spring Boot 4.1 split
   `@WebMvcTest`/`@DataJpaTest`/`@AutoConfigureTestDatabase` out of `spring-boot-test-autoconfigure` into
   these dedicated starters, and replaced `@MockBean`/`@SpyBean` with `@MockitoBean`/`@MockitoSpyBean`.
+
+### Fixed
+- `jacoco-maven-plugin` version pinned explicitly in `pom.xml` (`0.8.15`). It was previously unpinned
+  and silently resolving to "latest release" at build time — not managed by `spring-boot-starter-parent`
+  as the docs assumed — which Maven flags as a non-reproducible build.
 
 ## 0.0.1-SNAPSHOT
 

@@ -45,6 +45,19 @@ Working status/roadmap doc for `clients-service`. For the detailed change histor
   via a `@RestControllerAdvice` (`GlobalExceptionHandler`), plus `MethodArgumentNotValidException` → 400,
   landed together with the client vertical above.
 
+- **Docker verification, Alpine base images, and `HEALTHCHECK`.** Rebuilt and ran the packaged image
+  against the compose Postgres over its Docker network (manual `docker build`/`docker run` smoke test,
+  not automated) — confirmed the full REST API works end-to-end from inside the container. Switched both
+  Dockerfile stages from Debian-based `eclipse-temurin:26-jdk`/`26-jre` to `26-jdk-alpine`/`26-jre-alpine`
+  (~40% smaller runtime image: ~312MB vs. ~517MB), which meant adjusting `addgroup`/`adduser` to
+  BusyBox's short-flag syntax (`-S`/`-G`, not the Debian shadow-utils long flags) and writing the
+  `HEALTHCHECK` around BusyBox `wget` instead of `bash`'s `/dev/tcp` (Alpine has neither `bash` nor
+  `curl`). The healthcheck hits `/api/v1/clients` via `wget --spider`, so it now also verifies DB
+  readiness, not just that Tomcat is listening. Also fixed `jacoco-maven-plugin`'s version being unpinned
+  (silently resolving to "latest release" at build time instead of anything managed by
+  `spring-boot-starter-parent`, which the docs had wrongly assumed) by pinning it explicitly in
+  `pom.xml`.
+
 There is still only one feature vertical (`client/`) — no other resources yet.
 
 ## Suggested next steps
@@ -52,8 +65,9 @@ There is still only one feature vertical (`client/`) — no other resources yet.
 Roughly in the order they unblock each other; not a hard commitment, just a proposed path — revisit as
 priorities change.
 
-1. **`spring-boot-starter-actuator`** for health/metrics — also gives the Dockerfile a real
-   `HEALTHCHECK` target instead of none.
+1. **`spring-boot-starter-actuator`** for health/metrics — would let the Dockerfile's `HEALTHCHECK`
+   target a proper `/actuator/health` endpoint instead of the business `/api/v1/clients` route it
+   currently (pragmatically) reuses.
 2. **API documentation** — `springdoc-openapi` for a live OpenAPI/Swagger UI, generated from the
    existing controllers/DTOs.
 3. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no

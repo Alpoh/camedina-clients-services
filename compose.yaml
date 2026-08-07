@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: 'postgres:17.2'
+    image: 'postgres:17.2-alpine'
     environment:
       - 'POSTGRES_DB=clients-service'
       - 'POSTGRES_PASSWORD=clients-service'

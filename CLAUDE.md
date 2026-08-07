@@ -151,8 +151,10 @@ first use. Requires Docker to be running locally; expect the first test run to b
   tests match production behavior — pairs well with the `compose.yaml` services already used for local
   dev.
 - **Coverage:** `jacoco-maven-plugin` is bound to `./mvnw test` (`prepare-agent` + a `report` execution
-  in the `test` phase, version managed by `spring-boot-starter-parent`). Reports land in
-  `target/site/jacoco/` (`index.html` for a browsable report, `jacoco.xml`/`jacoco.csv` for tooling) —
+  in the `test` phase, version pinned explicitly in `pom.xml` — `spring-boot-starter-parent` does not
+  manage it, so an unpinned version resolves to "latest release" at build time, which Maven flags as
+  non-reproducible). Reports land in `target/site/jacoco/` (`index.html` for a browsable report,
+  `jacoco.xml`/`jacoco.csv` for tooling) —
   no enforced coverage threshold yet, it's report-only.
 - **Config properties:** for grouped settings, prefer a `@ConfigurationProperties`-annotated record
   (the configuration-processor annotation path is already wired in `pom.xml`) over multiple loose
@@ -215,14 +217,24 @@ piece of the stack actually exists — don't build the infrastructure for them s
 
 ## Docker / packaging
 
-- `Dockerfile` builds the app image via a multi-stage build:
-  - `build` stage: `eclipse-temurin:26-jdk`, runs `./mvnw package` (with a `/root/.m2` cache mount),
-    then `java -Djarmode=tools -jar target/*.jar extract --layers --destination extracted` — Spring Boot
-    4's `tools` jarmode (replaces the old 3.x `layertools` mode), which produces a thin `application/*.jar`
+- `Dockerfile` builds the app image via a multi-stage build, both stages on **Alpine** base images
+  (`eclipse-temurin:26-jdk-alpine` / `26-jre-alpine`, not the Debian-based plain tags) — ~40% smaller
+  runtime image (~312MB vs. ~517MB for `26-jre`). Alpine ships BusyBox, not GNU coreutils/bash — two
+  concrete places that matters:
+  - **`addgroup`/`adduser` use BusyBox's short-flag syntax**: `addgroup -S spring && adduser -S -G spring
+    spring`, not Debian shadow-utils' `addgroup --system` / `adduser --system --ingroup`.
+  - **No `bash`, no `curl` — only BusyBox `sh` and `wget`.** The `HEALTHCHECK` uses
+    `wget --spider -q -T 3 http://localhost:8080/api/v1/clients`, not a `bash`-`/dev/tcp` trick. Reusing
+    a business endpoint (rather than a dedicated health route) is a pragmatic stand-in until actuator
+    lands — it does mean the healthcheck actually exercises DB connectivity today, not just "Tomcat is
+    listening."
+  - `build` stage: runs `./mvnw package` (with a `/root/.m2` cache mount), then
+    `java -Djarmode=tools -jar target/*.jar extract --layers --destination extracted` — Spring Boot 4's
+    `tools` jarmode (replaces the old 3.x `layertools` mode), which produces a thin `application/*.jar`
     (Main-Class + a `Class-Path` manifest entry pointing at `lib/*.jar`, no `JarLauncher` involved) plus
     `dependencies/lib/*.jar`.
-  - `runtime` stage: `eclipse-temurin:26-jre`, copies `dependencies/lib/` → `./lib/` and the extracted
-    jar → `./app.jar`, runs as a non-root `spring` user, `ENTRYPOINT ["java", "-jar", "app.jar"]`.
+  - `runtime` stage: copies `dependencies/lib/` → `./lib/` and the extracted jar → `./app.jar`, runs as a
+    non-root `spring` user, `ENTRYPOINT ["java", "-jar", "app.jar"]`.
   - Dependency and application-code layers are copied separately so `docker build` cache reuse works when
     only application code changes.
   - `./mvnw spring-boot:build-image` (Cloud Native Buildpacks) remains a viable no-Dockerfile alternative

@@ -81,14 +81,24 @@ full list aimed at AI coding agents):
 
 - `compose.yaml` — **local dev dependencies only** (currently just Postgres). It intentionally does not
   run the application itself.
-- `Dockerfile` — multi-stage build for the *application* image:
-  1. `eclipse-temurin:26-jdk` builds the jar with the Maven wrapper and extracts it with Spring Boot 4's
-     `tools` jarmode (`java -Djarmode=tools -jar target/*.jar extract --layers ...`), producing a thin
-     application jar plus a `lib/` directory of dependency jars.
-  2. `eclipse-temurin:26-jre` copies those layers in and runs as a non-root `spring` user via
+- `Dockerfile` — multi-stage build for the *application* image, both stages on **Alpine** base images
+  (`eclipse-temurin:26-jdk-alpine` / `26-jre-alpine`) — the runtime image is ~40% smaller than the
+  Debian-based `26-jre` tag (~312MB vs. ~517MB), verified with an actual `docker build` + `docker run`
+  against the compose Postgres.
+  1. `eclipse-temurin:26-jdk-alpine` builds the jar with the Maven wrapper and extracts it with Spring
+     Boot 4's `tools` jarmode (`java -Djarmode=tools -jar target/*.jar extract --layers ...`), producing
+     a thin application jar plus a `lib/` directory of dependency jars.
+  2. `eclipse-temurin:26-jre-alpine` copies those layers in and runs as a non-root `spring` user via
      `java -jar app.jar`.
 - The built image ships with no datasource configuration baked in; that's supplied by the deployment
   environment at runtime.
+- **Alpine ships BusyBox, not GNU coreutils/bash** — this affects two things in the Dockerfile:
+  `addgroup -S spring && adduser -S -G spring spring` (BusyBox's short-flag syntax, not Debian
+  shadow-utils' long flags), and the `HEALTHCHECK`, which uses BusyBox `wget --spider -q -T 3` against
+  `http://localhost:8080/api/v1/clients` (no `bash`/`curl` available to do a `/dev/tcp` trick or a curl
+  check). Reusing a business endpoint for the healthcheck is a pragmatic stand-in — it does mean today's
+  healthcheck actually verifies DB connectivity, not just "Tomcat is listening." Revisit with a dedicated
+  `/actuator/health` check once `spring-boot-starter-actuator` lands (see `docs/PLAN.md`).
 
 ## Testing strategy
 
