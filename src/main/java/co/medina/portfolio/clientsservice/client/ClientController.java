@@ -3,6 +3,7 @@ package co.medina.portfolio.clientsservice.client;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -36,13 +37,13 @@ public class ClientController {
     }
 
     @GetMapping("/{id}")
-    ClientResponse getById(@PathVariable UUID id) {
-        return ClientResponse.from(clientService.getById(id));
+    ClientResponse findById(@PathVariable UUID id) {
+        return ClientResponse.from(clientService.findById(id));
     }
 
     @GetMapping
-    Page<ClientResponse> getAll(Pageable pageable) {
-        return clientService.getAll(pageable).map(ClientResponse::from);
+    Page<ClientResponse> findAll(@ParameterObject Pageable pageable) {
+        return clientService.findAll(pageable).map(ClientResponse::from);
     }
 
     @PutMapping("/{id}")

@@ -31,7 +31,13 @@ real Postgres service, and `spring-boot-docker-compose` starts/wires it automati
   defense-in-depth. Full CRUD, `Pageable`/`Page<T>` list endpoints, Bean Validation (ISO-3166-1
   alpha-2 country codes on addresses), `NotFoundException`/`ConflictException` mapped to RFC 7807
   `ProblemDetail` via `GlobalExceptionHandler` (`@RestControllerAdvice`). See `docs/API.md` for the
-  full endpoint table.
+  full endpoint table. Query methods are named `findById`/`findAll` (not `getById`/`getAll`) — `get*`
+  reads as a plain accessor, which these aren't (they take arguments, hit the DB, and can throw).
+- **`Pageable` controller parameters need `@ParameterObject`** (`org.springdoc.core.annotations`) or
+  springdoc renders `page`/`size`/`sort` as one opaque object query param instead of three separate,
+  documented ones — confirmed broken without it on this springdoc/Spring Boot combo (springdoc's
+  automatic `Pageable` detection didn't activate). Also: `sort`'s value format is `property,direction`
+  (e.g. `name,asc`) — a bare direction like `sort=asc` is parsed as a property named `asc` and 500s.
 - Test dependencies: `spring-boot-starter-webmvc-test` + `spring-boot-starter-data-jpa-test` (Spring
   Boot 4.1 split `@WebMvcTest`/`@DataJpaTest`/`@AutoConfigureTestDatabase` out of
   `spring-boot-test-autoconfigure` into these; `@MockBean`/`@SpyBean` were replaced by

@@ -42,10 +42,10 @@ class PhoneControllerTest {
     }
 
     @Test
-    void getById_returns404_whenPhoneBelongsToDifferentClient() throws Exception {
+    void findById_returns404_whenPhoneBelongsToDifferentClient() throws Exception {
         var clientId = UUID.randomUUID();
         var phoneId = UUID.randomUUID();
-        when(phoneService.getById(clientId, phoneId))
+        when(phoneService.findById(clientId, phoneId))
                 .thenThrow(new NotFoundException("Phone " + phoneId + " not found for client " + clientId));
 
         mockMvc.perform(get("/api/v1/clients/{clientId}/phones/{phoneId}", clientId, phoneId))

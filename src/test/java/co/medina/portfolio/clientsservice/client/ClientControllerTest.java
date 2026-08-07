@@ -57,17 +57,17 @@ class ClientControllerTest {
     }
 
     @Test
-    void getById_returns404ProblemDetail_whenClientNotFound() throws Exception {
+    void findById_returns404ProblemDetail_whenClientNotFound() throws Exception {
         var id = UUID.randomUUID();
-        when(clientService.getById(id)).thenThrow(new NotFoundException("Client " + id + " not found"));
+        when(clientService.findById(id)).thenThrow(new NotFoundException("Client " + id + " not found"));
 
         mockMvc.perform(get("/api/v1/clients/{id}", id))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    void getAll_returns200WithPagedBody() throws Exception {
-        when(clientService.getAll(any())).thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+    void findAll_returns200WithPagedBody() throws Exception {
+        when(clientService.findAll(any())).thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 
         mockMvc.perform(get("/api/v1/clients"))
                 .andExpect(status().isOk());

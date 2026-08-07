@@ -87,12 +87,12 @@ class AddressServiceTest {
     }
 
     @Test
-    void getById_throwsNotFoundException_whenAddressBelongsToDifferentClient() {
+    void findById_throwsNotFoundException_whenAddressBelongsToDifferentClient() {
         var addressId = UUID.randomUUID();
         when(clientRepository.existsById(clientId)).thenReturn(true);
         when(addressRepository.findByIdAndClientId(addressId, clientId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> addressService.getById(clientId, addressId))
+        assertThatThrownBy(() -> addressService.findById(clientId, addressId))
                 .isInstanceOf(NotFoundException.class);
     }
 }

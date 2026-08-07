@@ -3,6 +3,7 @@ package co.medina.portfolio.clientsservice.client;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -36,13 +37,13 @@ public class AddressController {
     }
 
     @GetMapping("/{addressId}")
-    AddressResponse getById(@PathVariable UUID clientId, @PathVariable UUID addressId) {
-        return AddressResponse.from(addressService.getById(clientId, addressId));
+    AddressResponse findById(@PathVariable UUID clientId, @PathVariable UUID addressId) {
+        return AddressResponse.from(addressService.findById(clientId, addressId));
     }
 
     @GetMapping
-    Page<AddressResponse> getAll(@PathVariable UUID clientId, Pageable pageable) {
-        return addressService.getAll(clientId, pageable).map(AddressResponse::from);
+    Page<AddressResponse> findAll(@PathVariable UUID clientId, @ParameterObject Pageable pageable) {
+        return addressService.findAll(clientId, pageable).map(AddressResponse::from);
     }
 
     @PutMapping("/{addressId}")

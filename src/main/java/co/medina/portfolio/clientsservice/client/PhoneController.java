@@ -3,6 +3,7 @@ package co.medina.portfolio.clientsservice.client;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -36,13 +37,13 @@ public class PhoneController {
     }
 
     @GetMapping("/{phoneId}")
-    PhoneResponse getById(@PathVariable UUID clientId, @PathVariable UUID phoneId) {
-        return PhoneResponse.from(phoneService.getById(clientId, phoneId));
+    PhoneResponse findById(@PathVariable UUID clientId, @PathVariable UUID phoneId) {
+        return PhoneResponse.from(phoneService.findById(clientId, phoneId));
     }
 
     @GetMapping
-    Page<PhoneResponse> getAll(@PathVariable UUID clientId, Pageable pageable) {
-        return phoneService.getAll(clientId, pageable).map(PhoneResponse::from);
+    Page<PhoneResponse> findAll(@PathVariable UUID clientId, @ParameterObject Pageable pageable) {
+        return phoneService.findAll(clientId, pageable).map(PhoneResponse::from);
     }
 
     @PutMapping("/{phoneId}")

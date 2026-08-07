@@ -63,7 +63,13 @@ Working status/roadmap doc for `clients-service`. For the detailed change histor
   controllers/DTOs/Bean Validation annotations, no hand-written spec. Verified working end-to-end
   (all 6 controllers/15 routes and every request/response schema showed up correctly) despite this
   version predating Spring Boot 4.1/Spring Framework 7's release by over a year — worth re-checking for a
-  newer springdoc release later, but functionally solid today.
+  newer springdoc release later, but functionally solid today. One real gap found and fixed while
+  actually testing it through the UI: `Pageable` controller parameters needed `@ParameterObject`
+  (`org.springdoc.core.annotations`) to render as separate `page`/`size`/`sort` query params — without
+  it, springdoc's automatic `Pageable` detection didn't activate on this stack, and Swagger UI's array
+  widget for the un-flattened parameter sent malformed requests (`sort=["ASC"]`) that 500'd. Also renamed
+  `getById`/`getAll` to `findById`/`findAll` across all three services/controllers — `get*` reads as a
+  plain accessor even though these take arguments, hit the DB, and can throw.
 
 There is still only one feature vertical (`client/`) — no other resources yet.
 

@@ -25,21 +25,21 @@ public class PhoneService {
     }
 
     @Transactional(readOnly = true)
-    public Phone getById(UUID clientId, UUID phoneId) {
+    public Phone findById(UUID clientId, UUID phoneId) {
         requireClientExists(clientId);
         return phoneRepository.findByIdAndClientId(phoneId, clientId)
                 .orElseThrow(() -> new NotFoundException("Phone " + phoneId + " not found for client " + clientId));
     }
 
     @Transactional(readOnly = true)
-    public Page<Phone> getAll(UUID clientId, Pageable pageable) {
+    public Page<Phone> findAll(UUID clientId, Pageable pageable) {
         requireClientExists(clientId);
         return phoneRepository.findByClientId(clientId, pageable);
     }
 
     @Transactional
     public Phone update(UUID clientId, UUID phoneId, PhoneRequest request) {
-        var phone = getById(clientId, phoneId);
+        var phone = findById(clientId, phoneId);
         var soleRemaining = phoneRepository.countByClientId(clientId) == 1;
         var primary = soleRemaining || request.primary();
         if (primary) {
@@ -53,7 +53,7 @@ public class PhoneService {
 
     @Transactional
     public void delete(UUID clientId, UUID phoneId) {
-        phoneRepository.delete(getById(clientId, phoneId));
+        phoneRepository.delete(findById(clientId, phoneId));
     }
 
     private void requireClientExists(UUID clientId) {

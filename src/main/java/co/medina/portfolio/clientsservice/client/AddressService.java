@@ -33,21 +33,21 @@ public class AddressService {
     }
 
     @Transactional(readOnly = true)
-    public Address getById(UUID clientId, UUID addressId) {
+    public Address findById(UUID clientId, UUID addressId) {
         requireClientExists(clientId);
         return addressRepository.findByIdAndClientId(addressId, clientId)
                 .orElseThrow(() -> new NotFoundException("Address " + addressId + " not found for client " + clientId));
     }
 
     @Transactional(readOnly = true)
-    public Page<Address> getAll(UUID clientId, Pageable pageable) {
+    public Page<Address> findAll(UUID clientId, Pageable pageable) {
         requireClientExists(clientId);
         return addressRepository.findByClientId(clientId, pageable);
     }
 
     @Transactional
     public Address update(UUID clientId, UUID addressId, AddressRequest request) {
-        var address = getById(clientId, addressId);
+        var address = findById(clientId, addressId);
         var soleRemaining = addressRepository.countByClientId(clientId) == 1;
         var primary = soleRemaining || request.primary();
         if (primary) {
@@ -65,7 +65,7 @@ public class AddressService {
 
     @Transactional
     public void delete(UUID clientId, UUID addressId) {
-        addressRepository.delete(getById(clientId, addressId));
+        addressRepository.delete(findById(clientId, addressId));
     }
 
     private void requireClientExists(UUID clientId) {

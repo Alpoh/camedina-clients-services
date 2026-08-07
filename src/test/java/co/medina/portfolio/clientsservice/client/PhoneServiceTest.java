@@ -87,12 +87,12 @@ class PhoneServiceTest {
     }
 
     @Test
-    void getById_throwsNotFoundException_whenPhoneBelongsToDifferentClient() {
+    void findById_throwsNotFoundException_whenPhoneBelongsToDifferentClient() {
         var phoneId = UUID.randomUUID();
         when(clientRepository.existsById(clientId)).thenReturn(true);
         when(phoneRepository.findByIdAndClientId(phoneId, clientId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> phoneService.getById(clientId, phoneId))
+        assertThatThrownBy(() -> phoneService.findById(clientId, phoneId))
                 .isInstanceOf(NotFoundException.class);
     }
 }

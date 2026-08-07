@@ -49,6 +49,9 @@ lives under `[Unreleased]`.
   flags.
 - `compose.yaml`'s Postgres switched from `postgres:17.2` to `postgres:17.2-alpine` (~36% smaller:
   ~398MB vs. ~620MB); `pg_isready` healthcheck needed no changes.
+- `ClientService`/`PhoneService`/`AddressService` and their controllers: `getById`/`getAll` renamed to
+  `findById`/`findAll` — `get*` reads as a plain field accessor even though these take arguments, hit the
+  DB, and can throw `NotFoundException`.
 - Renamed group/artifact from `co.medina.portafolio:camedina-clients-service` to
   `co.medina.portfolio:clients-service` (fixing the `portafolio` typo and dropping the redundant
   `camedina-` prefix).
@@ -63,6 +66,12 @@ lives under `[Unreleased]`.
 - `jacoco-maven-plugin` version pinned explicitly in `pom.xml` (`0.8.15`). It was previously unpinned
   and silently resolving to "latest release" at build time — not managed by `spring-boot-starter-parent`
   as the docs assumed — which Maven flags as a non-reproducible build.
+- The three `getAll` controller methods' `Pageable` parameters now carry `@ParameterObject`
+  (`org.springdoc.core.annotations`). Without it, springdoc rendered `page`/`size`/`sort` as one opaque
+  object query parameter instead of three separate ones, and Swagger UI's array widget for the
+  un-flattened `sort` field sent malformed requests (literally `sort=["ASC"]`) that 500'd with
+  `InvalidDataAccessApiUsageException`. Found by actually exercising the Swagger UI, not just checking
+  it loaded.
 
 ## 0.0.1-SNAPSHOT
 

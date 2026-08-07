@@ -30,7 +30,11 @@ outside dev/staging once the app has real auth (see `docs/PLAN.md`).
   }
   ```
 - **Pagination:** prefer Spring Data's `Pageable`/`Page<T>` for list endpoints once they exist, exposed
-  via standard `page`/`size`/`sort` query params.
+  via standard `page`/`size`/`sort` query params. `sort`'s value is `property,direction`
+  (e.g. `sort=name,asc`), repeatable for multiple criteria — a bare direction like `sort=asc` is parsed
+  as a property literally named `asc` and returns a 500. Controller methods must annotate the `Pageable`
+  parameter with `@ParameterObject` (`org.springdoc.core.annotations`) or Swagger UI renders it as one
+  broken opaque object parameter instead of separate `page`/`size`/`sort` fields.
 - **IDs:** resource IDs are opaque in URLs (e.g. `/api/v1/clients/{id}`); don't leak database-internal
   details beyond the primary key.
 

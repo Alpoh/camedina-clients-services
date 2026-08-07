@@ -50,11 +50,11 @@ class ClientServiceTest {
     }
 
     @Test
-    void getById_throwsNotFoundException_whenIdUnknown() {
+    void findById_throwsNotFoundException_whenIdUnknown() {
         var id = UUID.randomUUID();
         when(clientRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> clientService.getById(id))
+        assertThatThrownBy(() -> clientService.findById(id))
                 .isInstanceOf(NotFoundException.class);
     }
 

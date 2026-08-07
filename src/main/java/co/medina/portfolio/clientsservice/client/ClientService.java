@@ -25,19 +25,19 @@ public class ClientService {
     }
 
     @Transactional(readOnly = true)
-    public Client getById(UUID id) {
+    public Client findById(UUID id) {
         return clientRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Client " + id + " not found"));
     }
 
     @Transactional(readOnly = true)
-    public Page<Client> getAll(Pageable pageable) {
+    public Page<Client> findAll(Pageable pageable) {
         return clientRepository.findAll(pageable);
     }
 
     @Transactional
     public Client update(UUID id, ClientRequest request) {
-        var client = getById(id);
+        var client = findById(id);
         if (!client.getEmail().equals(request.email())) {
             requireEmailAvailable(request.email());
         }
@@ -52,7 +52,7 @@ public class ClientService {
 
     @Transactional
     public void delete(UUID id) {
-        clientRepository.delete(getById(id));
+        clientRepository.delete(findById(id));
     }
 
     private void requireEmailAvailable(String email) {

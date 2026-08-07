@@ -43,10 +43,10 @@ class AddressControllerTest {
     }
 
     @Test
-    void getById_returns404_whenAddressBelongsToDifferentClient() throws Exception {
+    void findById_returns404_whenAddressBelongsToDifferentClient() throws Exception {
         var clientId = UUID.randomUUID();
         var addressId = UUID.randomUUID();
-        when(addressService.getById(clientId, addressId))
+        when(addressService.findById(clientId, addressId))
                 .thenThrow(new NotFoundException("Address " + addressId + " not found for client " + clientId));
 
         mockMvc.perform(get("/api/v1/clients/{clientId}/addresses/{addressId}", clientId, addressId))
