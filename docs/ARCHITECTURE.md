@@ -30,26 +30,34 @@ split as the service grows.
 ```
 src/main/java/co/medina/portfolio/clientsservice/
   ClientsServiceApplication.java
-  client/                 # example future feature package
-    ClientController.java
-    ClientService.java
-    Client.java            (JPA entity)
-    ClientRepository.java
-    CreateClientRequest.java (record DTO)
+  client/                       # first feature package
+    Client.java                 (JPA entity)      Phone.java             Address.java
+    ClientRepository.java                          PhoneRepository.java   AddressRepository.java
+    ClientService.java                             PhoneService.java      AddressService.java
+    ClientController.java                          PhoneController.java   AddressController.java
+    ClientRequest.java / ClientResponse.java (record DTOs, one pair each per resource)
+    AuditableEntity.java         # @MappedSuperclass: createdAt/updatedAt via @PrePersist/@PreUpdate
+    NotFoundException.java / ConflictException.java / GlobalExceptionHandler.java (@RestControllerAdvice)
 ```
+`Phone`/`Address` are independent sub-resources scoped by a plain `client_id` FK column — not a
+bidirectional JPA relationship on `Client`. `NotFoundException`/`ConflictException`/
+`GlobalExceptionHandler` live in `client/` for now since it's the only feature package; hoist them to a
+shared package once a second vertical needs them too.
 
 ## Persistence
 
 - `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime) are on the classpath.
-- No entities or repositories exist yet — the JPA/Hibernate auto-configuration is wired but idle until
-  the first `@Entity` is added.
+- Three entities so far: `Client`, `Phone`, `Address` (all `client` package) — see
+  [Package layout](#package-layout).
 - **Schema migrations own the schema, Hibernate only validates.** `spring-boot-starter-flyway` +
   `flyway-database-postgresql` are on the runtime classpath, and `spring.jpa.hibernate.ddl-auto=validate`
   is set — Hibernate never generates DDL; it just checks entities against whatever Flyway has applied.
   Flyway runs automatically on startup (`spring-boot:run` and `./mvnw test`) against migrations on
   `classpath:db/migration` (default location), auto-configured for the same Postgres instance
-  `spring-boot-docker-compose` wires up. No migration scripts exist yet since there are no entities —
-  the first `V1__*.sql` lands together with the first `@Entity`.
+  `spring-boot-docker-compose` wires up. `V1__create_client_tables.sql` creates `clients`,
+  `client_phones`, `client_addresses` — including a partial unique index per phones/addresses table
+  (`WHERE is_primary`) enforcing at most one primary row per client as defense-in-depth alongside the
+  service-layer logic.
 - Local dev and tests get a real Postgres instance for free: `compose.yaml` defines a `postgres:17.2`
   service, and `spring-boot-docker-compose` starts it and injects `spring.datasource.*` automatically for
   both `./mvnw spring-boot:run` and `./mvnw test` (see [Local development & Docker](#local-development--docker)).
@@ -84,9 +92,13 @@ full list aimed at AI coding agents):
 
 ## Testing strategy
 
-- `spring-boot-starter-test` (JUnit 5, AssertJ, Mockito).
+- `spring-boot-starter-webmvc-test` + `spring-boot-starter-data-jpa-test` (each transitively includes
+  `spring-boot-starter-test`: JUnit 5, AssertJ, Mockito). Spring Boot 4.1 split `@WebMvcTest`/
+  `@DataJpaTest`/`@AutoConfigureTestDatabase` out of `spring-boot-test-autoconfigure` into these
+  dedicated starters, and replaced `@MockBean`/`@SpyBean` with `@MockitoBean`/`@MockitoSpyBean`.
 - `@SpringBootTest` is reserved for cases that need the full context; slice tests (`@WebMvcTest`,
-  `@DataJpaTest`) or plain Mockito unit tests are preferred otherwise.
+  `@DataJpaTest` with `@AutoConfigureTestDatabase(replace = Replace.NONE)` so it hits the real compose
+  Postgres instead of embedded H2) or plain Mockito unit tests are preferred otherwise.
 - `spring.docker.compose.skip.in-tests=false` is set, so any test that boots the Spring context also
   starts the real Postgres container from `compose.yaml` — tests exercise the real database rather than
   H2 or mocks. This requires Docker to be running locally.
@@ -96,6 +108,7 @@ full list aimed at AI coding agents):
 
 ## Current status / roadmap
 
-`spring-boot-starter-web` is on the classpath: the application starts an embedded Tomcat and stays
-running. No business logic exists yet — no controllers, entities, or repositories. Adding the first
-feature package (e.g. `client/`) is the natural next step.
+The `client` feature vertical is implemented end-to-end: `Client` plus independently-managed `Phone`/
+`Address` sub-resources, full CRUD REST API, Flyway-owned schema, `ProblemDetail` error handling, and
+test coverage across all three layers. See `docs/PLAN.md` for what's next (actuator, OpenAPI docs, CI,
+a second feature vertical).

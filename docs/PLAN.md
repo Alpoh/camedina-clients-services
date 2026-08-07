@@ -33,31 +33,37 @@ Working status/roadmap doc for `clients-service`. For the detailed change histor
   validates entities against the schema Flyway owns. Verified via `./mvnw test` — Flyway runs against
   the compose Postgres on startup, finds zero migrations (expected, no entities yet) and doesn't fail.
   No `db/migration` scripts exist yet; the first one lands with the first `@Entity`.
+- **First feature vertical: `client/`.** `Client` (name, unique email) with independently-managed
+  `Phone`/`Address` sub-resources (separate tables/endpoints, not nested in the client payload), each
+  supporting multiple entries per client with a service-enforced "exactly one primary" invariant
+  (backed by a DB partial unique index). Full CRUD, `Pageable`/`Page<T>` list endpoints per
+  `docs/API.md`'s convention, Bean Validation at the boundary (including ISO-3166-1 alpha-2 country
+  codes on addresses), `db/migration/V1__create_client_tables.sql`. Test coverage across
+  `@DataJpaTest`/`@WebMvcTest`/plain Mockito unit tests, verified end-to-end via `spring-boot:run` +
+  `curl`. `docs/API.md`'s endpoint table is now filled in.
+- **Global error handling.** `NotFoundException`/`ConflictException` mapped to RFC 7807 `ProblemDetail`
+  via a `@RestControllerAdvice` (`GlobalExceptionHandler`), plus `MethodArgumentNotValidException` → 400,
+  landed together with the client vertical above.
 
-There is still **no business logic**: no entities, no repositories, no controllers.
+There is still only one feature vertical (`client/`) — no other resources yet.
 
 ## Suggested next steps
 
 Roughly in the order they unblock each other; not a hard commitment, just a proposed path — revisit as
 priorities change.
 
-1. **Build the first feature vertical** (e.g. `client/`) as the template for package-by-feature:
-   entity, repository, request/response `record` DTOs, service, controller, and its first Flyway
-   migration under `src/main/resources/db/migration` (e.g. `V1__create_client_table.sql`).
-2. **Global error handling.** `@ControllerAdvice` mapping validation/domain errors to `ProblemDetail`
-   (RFC 7807), per the convention in `docs/ARCHITECTURE.md`.
-3. **`spring-boot-starter-actuator`** for health/metrics — also gives the Dockerfile a real
+1. **`spring-boot-starter-actuator`** for health/metrics — also gives the Dockerfile a real
    `HEALTHCHECK` target instead of none.
-4. **API documentation** — `springdoc-openapi` for a live OpenAPI/Swagger UI, then fill in
-   `docs/API.md`'s endpoint table as routes land. Now unblocked (web starter is in); still needs at
-   least one controller to have anything to document.
-5. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
+2. **API documentation** — `springdoc-openapi` for a live OpenAPI/Swagger UI, generated from the
+   existing controllers/DTOs.
+3. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
    automated gate beyond running tests locally.
-6. **Testing depth.** Slice tests (`@WebMvcTest`, `@DataJpaTest`) per feature, plus the existing
-   docker-compose-backed `@SpringBootTest` for full-context smoke coverage.
-7. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's I/O-bound work
+4. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
    (DB calls, external HTTP) worth benefiting from it.
-8. **Security** (Spring Security / auth) once there's something worth protecting.
+5. **Security** (Spring Security / auth) once there's something worth protecting.
+6. **A second feature vertical** to validate the package-by-feature pattern generalizes beyond
+   `client/` — also the trigger to hoist `NotFoundException`/`ConflictException`/`GlobalExceptionHandler`
+   out of the `client` package into a shared one.
 
 ## How to update this doc
 

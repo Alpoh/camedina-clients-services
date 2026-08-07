@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-This is a freshly scaffolded Spring Boot project (generated via Spring Initializr) with no business
-logic yet — a single `@SpringBootApplication` class, no controllers/entities/repositories.
-`compose.yaml` defines a real Postgres service, and `spring-boot-docker-compose` starts/wires it
-automatically for both `spring-boot:run` and `./mvnw test`.
+Originally a freshly scaffolded Spring Boot project (generated via Spring Initializr); the first
+business-logic feature vertical now exists (`client` package — see below). `compose.yaml` defines a
+real Postgres service, and `spring-boot-docker-compose` starts/wires it automatically for both
+`spring-boot:run` and `./mvnw test`.
 
 - Group/artifact: `co.medina.portfolio:clients-service`
 - Base package: `co.medina.portfolio.clientsservice`
@@ -15,14 +15,29 @@ automatically for both `spring-boot:run` and `./mvnw test`.
 - Java: 26 (`java.version` in `pom.xml`)
 - Lombok + `spring-boot-configuration-processor` are wired into the annotation processor path
 - Web: `spring-boot-starter-web` (embedded Tomcat) — the app starts and stays running
-- Persistence: `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime) — no entities/
-  repositories yet, but the `DataSource`/Hibernate stack is live and requires a reachable Postgres to
-  start the context (local dev gets this for free from `compose.yaml`)
+- Persistence: `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime). Three entities:
+  `Client`, `Phone`, `Address` (`client` package) — see below.
 - Migrations: Flyway (`spring-boot-starter-flyway` + `flyway-database-postgresql`, runtime) owns the
   schema; `spring.jpa.hibernate.ddl-auto=validate` means Hibernate never generates DDL, only validates
   entities against it. Flyway runs on every startup (`spring-boot:run` and `./mvnw test`) against
-  `classpath:db/migration` (default location) — currently empty since there are no entities yet. The
-  first migration (`V1__*.sql`) should land together with the first `@Entity`, not before.
+  `classpath:db/migration` (default location); `V1__create_client_tables.sql` creates the three tables
+  above. The next migration should land together with whatever `@Entity` needs it, not before.
+- First feature vertical: `client` package (`co.medina.portfolio.clientsservice.client`) — `Client`
+  (name, unique email) plus independently-managed `Phone`/`Address` sub-resources (own tables, own
+  `/api/v1/clients/{clientId}/phones|addresses` endpoints, not nested in the client payload; scoped by
+  a plain `client_id` FK column, no bidirectional JPA relationship on `Client`). Each phone/address has
+  a service-enforced "at most one primary per client" invariant (demoted on create/update, forced true
+  when it's the client's only one), backed by a DB partial unique index (`WHERE is_primary`) as
+  defense-in-depth. Full CRUD, `Pageable`/`Page<T>` list endpoints, Bean Validation (ISO-3166-1
+  alpha-2 country codes on addresses), `NotFoundException`/`ConflictException` mapped to RFC 7807
+  `ProblemDetail` via `GlobalExceptionHandler` (`@RestControllerAdvice`). See `docs/API.md` for the
+  full endpoint table.
+- Test dependencies: `spring-boot-starter-webmvc-test` + `spring-boot-starter-data-jpa-test` (Spring
+  Boot 4.1 split `@WebMvcTest`/`@DataJpaTest`/`@AutoConfigureTestDatabase` out of
+  `spring-boot-test-autoconfigure` into these; `@MockBean`/`@SpyBean` were replaced by
+  `@MockitoBean`/`@MockitoSpyBean`). Note Spring Boot 4.1 also defaults to Jackson 3.x, whose Maven
+  coordinates and base package moved from `com.fasterxml.jackson.*` to `tools.jackson.*` — e.g.
+  `ObjectMapper` is `tools.jackson.databind.ObjectMapper`, not the classic Jackson 2 package.
 
 **Toolchain note:** this repo targets Java 26. The system default `java` may still be JDK 21
 (`update-alternatives --list java`); a JDK 26 (Azul Zulu) is installed at `~/.jdks/azul-26.0.1` (added
@@ -142,6 +157,61 @@ first use. Requires Docker to be running locally; expect the first test run to b
 - **Config properties:** for grouped settings, prefer a `@ConfigurationProperties`-annotated record
   (the configuration-processor annotation path is already wired in `pom.xml`) over multiple loose
   `@Value` injections.
+
+## Web API / production best practices
+
+General practices for a Spring Boot REST/JPA service, beyond the Java/Spring-specific conventions
+above. Apply the "now" items directly; the "when X lands" items are conventions to follow once that
+piece of the stack actually exists — don't build the infrastructure for them speculatively.
+
+- **Never leak internals in error responses.** Unexpected exceptions must not reach the client as a raw
+  stack trace/exception message — that's an information-disclosure risk (class names, SQL, file paths).
+  `GlobalExceptionHandler` currently only maps `NotFoundException`/`ConflictException`/
+  `MethodArgumentNotValidException`; anything else falls through to Spring Boot's default error handling,
+  which can include a `trace` field depending on `server.error.include-stacktrace`. Add a catch-all
+  `@ExceptionHandler(Exception.class)` mapping to a generic 500 `ProblemDetail` with a fixed, non-leaky
+  detail message, and log the real exception server-side instead.
+- **Never log PII.** `Client`/`Phone`/`Address` carry email, phone numbers, and street addresses — don't
+  let entity `toString()` (already avoided by skipping `@Data`, see above) or ad-hoc `log.info(entity)`
+  calls dump that into logs. Log identifiers (`client.getId()`), not the PII fields themselves.
+- **Keep `@Transactional` methods short and free of I/O to other systems.** No outbound HTTP calls, no
+  Thread.sleep, nothing slow inside a transaction — it holds a DB connection (and possibly locks) for the
+  duration. Fine as-is today (our services only touch the DB), worth remembering as features grow.
+- **Avoid N+1 queries once entity relationships exist.** None of `Client`/`Phone`/`Address` have JPA
+  associations to each other today (by design — see Persistence above), so this doesn't bite yet; if a
+  `@OneToMany`/`@ManyToOne` is ever added, fetch what's needed with a fetch-join query or `@EntityGraph`
+  rather than looping and lazy-loading.
+- **Secrets never get committed or baked into images.** Already the pattern for `spring.datasource.*` in
+  prod (env vars, no compose file outside dev — see Docker Compose integration above); keep any future
+  secret (API keys, JWT signing keys) the same way.
+- **CORS: when a frontend/browser consumer exists**, configure explicit allowed origins per environment
+  (`CorsConfigurationSource` bean) rather than a wildcard `*` — there's no browser-facing consumer yet,
+  so nothing to configure today.
+- **Rate limiting / backpressure: once this API is reachable from the public internet**, add it at the
+  edge (gateway/ingress) or via a library (e.g. Bucket4j) rather than hand-rolling per-endpoint counters.
+- **TLS termination happens at the edge** (load balancer/ingress/reverse proxy), not in the Spring app
+  itself — don't add an embedded-Tomcat SSL config for this.
+- **Health/readiness probes: once `spring-boot-starter-actuator` lands** (see `docs/PLAN.md`), wire
+  `/actuator/health` into the Dockerfile `HEALTHCHECK` and any orchestrator's liveness/readiness checks
+  instead of a hand-rolled ping endpoint.
+- **Structured/JSON logging in production**, plain console logging (current default) is fine for local
+  dev — revisit when there's a real log aggregator to ship to.
+- **Postgres column types must match what Hibernate expects under `ddl-auto=validate`**, or the app
+  fails to start (hit this exact bug with `country CHAR(2)` vs. the `String` field's expected
+  `VARCHAR(2)` — see `docs/CHANGELOG.md`). When adding a migration, match the JPA field type: `String` →
+  `VARCHAR`/`TEXT` not `CHAR`, `Instant` → `TIMESTAMPTZ` not `TIMESTAMP`.
+- **Migrations must stay backward-compatible with the currently-running app** during a rolling deploy —
+  don't drop/rename a column or table in the same migration that removes the corresponding entity field;
+  land the migration first (additive), deploy, then remove the now-unused column in a later migration.
+- **Index every FK column** (already the pattern for `client_id` on `client_phones`/`client_addresses`)
+  — Postgres does not do this automatically, unlike the primary key.
+- **Prefer `@Slf4j` (Lombok) over a hand-declared `private static final Logger log = ...` field** once
+  logging is added to a class — consistent with keeping Lombok scoped to boilerplate reduction.
+- **OpenAPI/Swagger, once `springdoc-openapi` lands** (see `docs/PLAN.md`): let the spec generate from
+  the existing controllers/DTOs (`@Valid`, Bean Validation annotations, and Javadoc already describe the
+  shape) rather than growing a hand-maintained separate spec file that can drift from the real API. Use
+  `@Schema`/`@Operation` descriptions only where the code doesn't already make intent obvious. Don't
+  expose Swagger UI outside dev/staging without auth once the app is public.
 
 ## Docker / packaging
 

@@ -2,9 +2,9 @@
 
 ## Status
 
-No REST endpoints exist yet — there is no `spring-boot-starter-web` dependency, no controllers, and no
-entities on the classpath yet (see `docs/ARCHITECTURE.md`). This document describes the conventions
-future endpoints should follow, and should be updated with a real endpoint reference as they're built.
+The `client` feature vertical is implemented: `Client` plus its `Phone` and `Address` sub-resources
+(see `docs/ARCHITECTURE.md`). This document describes the conventions endpoints follow, and should be
+kept in sync with the real endpoint reference below as more are added.
 
 ## Conventions (for endpoints as they're added)
 
@@ -30,8 +30,37 @@ future endpoints should follow, and should be updated with a real endpoint refer
 
 ## Endpoints
 
-_None implemented yet._
+### Clients
 
-| Method | Path | Description | Status |
-|--------|------|-------------|--------|
-| —      | —    | —           | —      |
+| Method | Path                    | Description                          | Status |
+|--------|-------------------------|---------------------------------------|--------|
+| POST   | `/api/v1/clients`       | Create a client                       | 201 + `Location`, 400, 409 |
+| GET    | `/api/v1/clients/{id}`  | Get a client by id                    | 200, 404 |
+| GET    | `/api/v1/clients`       | List clients (paged, sortable)        | 200 (`Page<ClientResponse>`) |
+| PUT    | `/api/v1/clients/{id}`  | Replace a client's name/email         | 200, 400, 404, 409 |
+| DELETE | `/api/v1/clients/{id}`  | Delete a client (cascades phones/addresses) | 204, 404 |
+
+### Phones (sub-resource of a client)
+
+| Method | Path                                            | Description                        | Status |
+|--------|--------------------------------------------------|-------------------------------------|--------|
+| POST   | `/api/v1/clients/{clientId}/phones`               | Add a phone                        | 201 + `Location`, 400, 404 |
+| GET    | `/api/v1/clients/{clientId}/phones/{phoneId}`     | Get a phone by id                  | 200, 404 |
+| GET    | `/api/v1/clients/{clientId}/phones`               | List a client's phones (paged, sortable) | 200 (`Page<PhoneResponse>`) |
+| PUT    | `/api/v1/clients/{clientId}/phones/{phoneId}`     | Replace a phone                    | 200, 400, 404 |
+| DELETE | `/api/v1/clients/{clientId}/phones/{phoneId}`     | Delete a phone                     | 204, 404 |
+
+### Addresses (sub-resource of a client)
+
+| Method | Path                                                | Description                        | Status |
+|--------|-------------------------------------------------------|-------------------------------------|--------|
+| POST   | `/api/v1/clients/{clientId}/addresses`                 | Add an address                     | 201 + `Location`, 400, 404 |
+| GET    | `/api/v1/clients/{clientId}/addresses/{addressId}`     | Get an address by id                | 200, 404 |
+| GET    | `/api/v1/clients/{clientId}/addresses`                 | List a client's addresses (paged, sortable) | 200 (`Page<AddressResponse>`) |
+| PUT    | `/api/v1/clients/{clientId}/addresses/{addressId}`     | Replace an address                  | 200, 400, 404 |
+| DELETE | `/api/v1/clients/{clientId}/addresses/{addressId}`     | Delete an address                   | 204, 404 |
+
+Phones and addresses each carry a `primary` flag: a client always has exactly one primary phone/address
+once it has at least one (enforced by the service layer on create/update, backed by a DB partial unique
+index). A phone/address request for a client that doesn't exist, or a phone/address id that belongs to a
+*different* client than the one in the path, both return 404.
