@@ -1,6 +1,6 @@
 # API
 
-## Status
+## Status5
 
 The `client` feature vertical is implemented: `Client` plus its `Phone` and `Address` sub-resources
 (see `docs/ARCHITECTURE.md`). This document describes the conventions endpoints follow, and should be
@@ -74,3 +74,18 @@ Phones and addresses each carry a `primary` flag: a client always has exactly on
 once it has at least one (enforced by the service layer on create/update, backed by a DB partial unique
 index). A phone/address request for a client that doesn't exist, or a phone/address id that belongs to a
 *different* client than the one in the path, both return 404.
+
+### Projects (sub-resource of a client)
+
+| Method | Path                                               | Description                                | Status |
+|--------|-----------------------------------------------------|---------------------------------------------|--------|
+| POST   | `/api/v1/clients/{clientId}/projects`              | Create a project                           | 201 + `Location`, 400, 404 |
+| GET    | `/api/v1/clients/{clientId}/projects/{projectId}`  | Get a project by id                        | 200, 404 |
+| GET    | `/api/v1/clients/{clientId}/projects`              | List a client's projects (paged, sortable) | 200 (`Page<ProjectResponse>`) |
+| PUT    | `/api/v1/clients/{clientId}/projects/{projectId}`  | Replace a project                          | 200, 400, 404 |
+| DELETE | `/api/v1/clients/{clientId}/projects/{projectId}`  | Delete a project                           | 204, 404 |
+
+`status` is a fixed enum, serialized as lowercase snake_case on the wire (matching the admin/portal
+frontend's existing contract): `planning`, `in_progress`, `blocked`, `review`, `done`. A project is
+strictly single-client with no assignee concept yet (no `User`/auth exists in this backend) — same
+cross-client 404 rule as phones/addresses.

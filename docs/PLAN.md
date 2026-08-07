@@ -11,7 +11,7 @@ Working status/roadmap doc for `clients-service`. For the detailed change histor
 - **Tooling hygiene.** Comprehensive `.gitignore` for Java/Maven build output, IntelliJ (`.idea/`,
   `.run/`, `out/`), Eclipse/STS, NetBeans, VS Code, env/secret files, and OS cruft.
 - **Persistence wired up.** `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` added.
-  `compose.yaml` defines a real `postgres:17.2` service; `spring-boot-docker-compose` auto-starts and
+  `compose.yaml` defines a real `postgres:17.2-alpine` service; `spring-boot-docker-compose` auto-starts and
   wires it for both `spring-boot:run` and `./mvnw test` (`spring.docker.compose.skip.in-tests=false`).
 - **Docker packaging.** Multi-stage `Dockerfile` (Eclipse Temurin 26 JDK → JRE, Spring Boot 4 `tools`
   jarmode extraction, non-root `spring` user) plus `.dockerignore`. Verified it builds and runs
@@ -70,8 +70,29 @@ Working status/roadmap doc for `clients-service`. For the detailed change histor
   widget for the un-flattened parameter sent malformed requests (`sort=["ASC"]`) that 500'd. Also renamed
   `getById`/`getAll` to `findById`/`findAll` across all three services/controllers — `get*` reads as a
   plain accessor even though these take arguments, hit the DB, and can throw.
+- **`Project` — second feature vertical.** A separate admin/portal frontend (not in this repo) is
+  already built around per-client projects with statuses; the backend previously had no `Project`
+  resource. Added as a sub-resource of `Client` at `/api/v1/clients/{clientId}/projects` (own table,
+  `client_id` FK, `ON DELETE CASCADE`, mirrors the `Phone`/`Address` CRUD pattern exactly — no "primary"
+  concept needed here), `db/migration/V2__create_projects_table.sql`. Strictly single-client, no
+  assignable staff (no `User`/auth concept exists in this backend yet). Status is a fixed enum
+  (`PLANNING`/`IN_PROGRESS`/`BLOCKED`/`REVIEW`/`DONE` in Java) matched to the frontend's existing
+  lowercase-snake-case mocks (`planning`/`in_progress`/`blocked`/`review`/`done`) via Jackson
+  `@JsonValue`/`@JsonCreator` — confirmed round-tripping correctly on the wire, including in the
+  generated OpenAPI schema's enum values, not just at runtime. Test coverage across
+  `@DataJpaTest`/`@WebMvcTest`/plain Mockito unit tests (47 total tests now), verified end-to-end via
+  the running app.
+- **Global exception handling closed a real gap.** While testing `Project`'s status validation, an
+  invalid enum value on the request body (`HttpMessageNotReadableException`, thrown during JSON
+  deserialization before Bean Validation even runs) fell through `GlobalExceptionHandler` entirely and
+  leaked a full raw stack trace via Spring Boot's default error handling — exactly the risk flagged in
+  `CLAUDE.md`'s "never leak internals in error responses" rule, just not yet implemented. Added handlers
+  for `HttpMessageNotReadableException` (400, fixed non-leaky detail) and a catch-all `Exception` handler
+  (500, fixed detail, logs the real exception server-side via `@Slf4j`) — closes that gap for every
+  endpoint, not just `Project`'s.
 
-There is still only one feature vertical (`client/`) — no other resources yet.
+`Project` lives in the same `client` package as `Client`/`Phone`/`Address` (same reasoning as the
+existing sub-resources) — still one feature vertical, not two.
 
 ## Suggested next steps
 
@@ -86,10 +107,13 @@ priorities change.
 3. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
    (DB calls, external HTTP) worth benefiting from it.
 4. **Security** (Spring Security / auth) once there's something worth protecting — also when this
-   lands, lock down `/swagger-ui/**`/`/v3/api-docs/**` outside dev/staging per `CLAUDE.md`'s convention.
-5. **A second feature vertical** to validate the package-by-feature pattern generalizes beyond
-   `client/` — also the trigger to hoist `NotFoundException`/`ConflictException`/`GlobalExceptionHandler`
-   out of the `client` package into a shared one.
+   lands, lock down `/swagger-ui/**`/`/v3/api-docs/**` outside dev/staging per `CLAUDE.md`'s convention,
+   and revisit whether `Project` needs assignable staff once a real `User` concept exists.
+5. **A genuinely independent second feature vertical** (not a `Client` sub-resource) to validate the
+   package-by-feature pattern generalizes beyond `client/` — also the trigger to hoist
+   `NotFoundException`/`ConflictException`/`GlobalExceptionHandler` out of the `client` package into a
+   shared one, since they're reused across everything in it (`Client`, `Phone`, `Address`, `Project`)
+   but nothing outside it yet.
 
 ## How to update this doc
 

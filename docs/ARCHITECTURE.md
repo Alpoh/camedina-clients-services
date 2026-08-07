@@ -32,23 +32,27 @@ split as the service grows.
 src/main/java/co/medina/portfolio/clientsservice/
   ClientsServiceApplication.java
   client/                       # first feature package
-    Client.java                 (JPA entity)      Phone.java             Address.java
-    ClientRepository.java                          PhoneRepository.java   AddressRepository.java
-    ClientService.java                             PhoneService.java      AddressService.java
-    ClientController.java                          PhoneController.java   AddressController.java
+    Client.java                 (JPA entity)      Phone.java / Address.java / Project.java
+    ClientRepository.java                          {Phone,Address,Project}Repository.java
+    ClientService.java                             {Phone,Address,Project}Service.java
+    ClientController.java                          {Phone,Address,Project}Controller.java
     ClientRequest.java / ClientResponse.java (record DTOs, one pair each per resource)
+    ProjectStatus.java           # enum, Jackson @JsonValue/@JsonCreator maps to lowercase wire values
     AuditableEntity.java         # @MappedSuperclass: createdAt/updatedAt via @PrePersist/@PreUpdate
     NotFoundException.java / ConflictException.java / GlobalExceptionHandler.java (@RestControllerAdvice)
 ```
-`Phone`/`Address` are independent sub-resources scoped by a plain `client_id` FK column — not a
-bidirectional JPA relationship on `Client`. `NotFoundException`/`ConflictException`/
-`GlobalExceptionHandler` live in `client/` for now since it's the only feature package; hoist them to a
-shared package once a second vertical needs them too.
+`Phone`/`Address`/`Project` are independent sub-resources scoped by a plain `client_id` FK column — not
+a bidirectional JPA relationship on `Client`. All three live in the `client` package alongside `Client`
+itself, not in separate feature packages of their own — same reasoning for `Project` as for
+`Phone`/`Address`, even though `Project` has more of an independent lifecycle than a pure attribute
+would. `NotFoundException`/`ConflictException`/`GlobalExceptionHandler` live in `client/` for now since
+it's still the only feature package; hoist them to a shared package once a genuinely independent second
+vertical needs them too.
 
 ## Persistence
 
 - `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime) are on the classpath.
-- Three entities so far: `Client`, `Phone`, `Address` (all `client` package) — see
+- Four entities so far: `Client`, `Phone`, `Address`, `Project` (all `client` package) — see
   [Package layout](#package-layout).
 - **Schema migrations own the schema, Hibernate only validates.** `spring-boot-starter-flyway` +
   `flyway-database-postgresql` are on the runtime classpath, and `spring.jpa.hibernate.ddl-auto=validate`
@@ -58,9 +62,11 @@ shared package once a second vertical needs them too.
   `spring-boot-docker-compose` wires up. `V1__create_client_tables.sql` creates `clients`,
   `client_phones`, `client_addresses` — including a partial unique index per phones/addresses table
   (`WHERE is_primary`) enforcing at most one primary row per client as defense-in-depth alongside the
-  service-layer logic.
-- Local dev and tests get a real Postgres instance for free: `compose.yaml` defines a `postgres:17.2`
-  service, and `spring-boot-docker-compose` starts it and injects `spring.datasource.*` automatically for
+  service-layer logic. `V2__create_projects_table.sql` creates `projects` (FK to `clients`,
+  `ON DELETE CASCADE`, no primary-flag concept needed).
+- Local dev and tests get a real Postgres instance for free: `compose.yaml` defines a
+  `postgres:17.2-alpine` service, and `spring-boot-docker-compose` starts it and injects
+  `spring.datasource.*` automatically for
   both `./mvnw spring-boot:run` and `./mvnw test` (see [Local development & Docker](#local-development--docker)).
 - Production `spring.datasource.*` must come from real deployment config (env vars, secrets, a config
   server) — there's no compose file outside local dev.

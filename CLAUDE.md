@@ -15,24 +15,34 @@ real Postgres service, and `spring-boot-docker-compose` starts/wires it automati
 - Java: 26 (`java.version` in `pom.xml`)
 - Lombok + `spring-boot-configuration-processor` are wired into the annotation processor path
 - Web: `spring-boot-starter-web` (embedded Tomcat) — the app starts and stays running
-- Persistence: `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime). Three entities:
-  `Client`, `Phone`, `Address` (`client` package) — see below.
+- Persistence: `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime). Four entities:
+  `Client`, `Phone`, `Address`, `Project` (`client` package) — see below.
 - Migrations: Flyway (`spring-boot-starter-flyway` + `flyway-database-postgresql`, runtime) owns the
   schema; `spring.jpa.hibernate.ddl-auto=validate` means Hibernate never generates DDL, only validates
   entities against it. Flyway runs on every startup (`spring-boot:run` and `./mvnw test`) against
-  `classpath:db/migration` (default location); `V1__create_client_tables.sql` creates the three tables
-  above. The next migration should land together with whatever `@Entity` needs it, not before.
+  `classpath:db/migration` (default location); `V1__create_client_tables.sql` creates `clients`,
+  `client_phones`, `client_addresses`; `V2__create_projects_table.sql` creates `projects`. The next
+  migration should land together with whatever `@Entity` needs it, not before.
 - First feature vertical: `client` package (`co.medina.portfolio.clientsservice.client`) — `Client`
-  (name, unique email) plus independently-managed `Phone`/`Address` sub-resources (own tables, own
-  `/api/v1/clients/{clientId}/phones|addresses` endpoints, not nested in the client payload; scoped by
-  a plain `client_id` FK column, no bidirectional JPA relationship on `Client`). Each phone/address has
-  a service-enforced "at most one primary per client" invariant (demoted on create/update, forced true
-  when it's the client's only one), backed by a DB partial unique index (`WHERE is_primary`) as
-  defense-in-depth. Full CRUD, `Pageable`/`Page<T>` list endpoints, Bean Validation (ISO-3166-1
-  alpha-2 country codes on addresses), `NotFoundException`/`ConflictException` mapped to RFC 7807
-  `ProblemDetail` via `GlobalExceptionHandler` (`@RestControllerAdvice`). See `docs/API.md` for the
-  full endpoint table. Query methods are named `findById`/`findAll` (not `getById`/`getAll`) — `get*`
-  reads as a plain accessor, which these aren't (they take arguments, hit the DB, and can throw).
+  (name, unique email) plus independently-managed `Phone`/`Address`/`Project` sub-resources (own tables,
+  own `/api/v1/clients/{clientId}/phones|addresses|projects` endpoints, not nested in the client
+  payload; scoped by a plain `client_id` FK column, no bidirectional JPA relationship on `Client`). Each
+  phone/address has a service-enforced "at most one primary per client" invariant (demoted on
+  create/update, forced true when it's the client's only one), backed by a DB partial unique index
+  (`WHERE is_primary`) as defense-in-depth — `Project` has no such concept. Full CRUD, `Pageable`/
+  `Page<T>` list endpoints, Bean Validation (ISO-3166-1 alpha-2 country codes on addresses),
+  `NotFoundException`/`ConflictException` mapped to RFC 7807 `ProblemDetail` via `GlobalExceptionHandler`
+  (`@RestControllerAdvice`), which also has a `HttpMessageNotReadableException` handler (malformed JSON
+  body, e.g. a bad enum value → clean 400) and a catch-all `Exception` handler (500, fixed detail, logs
+  server-side) so nothing leaks a raw stack trace. See `docs/API.md` for the full endpoint table. Query
+  methods are named `findById`/`findAll` (not `getById`/`getAll`) — `get*` reads as a plain accessor,
+  which these aren't (they take arguments, hit the DB, and can throw).
+- `Project` matches an external admin/portal frontend (not in this repo) that already mocks per-client
+  projects with statuses. `ProjectStatus` is a fixed Java enum (`PLANNING`/`IN_PROGRESS`/`BLOCKED`/
+  `REVIEW`/`DONE`) but serializes/deserializes as the frontend's existing lowercase-snake-case values
+  (`planning`/`in_progress`/etc.) via Jackson `@JsonValue`/`@JsonCreator` — match an established external
+  wire contract exactly rather than introducing a casing mismatch. Strictly single-client, no assignable
+  staff (no `User`/auth concept exists in this backend yet).
 - **`Pageable` controller parameters need `@ParameterObject`** (`org.springdoc.core.annotations`) or
   springdoc renders `page`/`size`/`sort` as one opaque object query param instead of three separate,
   documented ones — confirmed broken without it on this springdoc/Spring Boot combo (springdoc's
@@ -117,7 +127,7 @@ available). At `spring-boot:run` / app startup it will:
   Redis, MongoDB, etc.) without manual config
 
 `compose.yaml` currently defines one service:
-- `postgres` (`postgres:17.2`) — db/user/password all `clients-service`; only the container port
+- `postgres` (`postgres:17.2-alpine`) — db/user/password all `clients-service`; only the container port
   (`5432`) is published, so Docker assigns a random host port and `spring-boot-docker-compose` reads it
   from the running container rather than a fixed port. Data persists in the named `postgres-data` volume
   across restarts (`docker compose down -v` to wipe it).
@@ -134,7 +144,7 @@ Implications when adding more services (Redis, etc.):
 (Spring Boot's default is to skip Docker Compose during tests). This means `@SpringBootTest` — including
 the plain `ClientsServiceApplicationTests` context-loads test — starts the real `postgres` container on
 first use. Requires Docker to be running locally; expect the first test run to be slower while the
-`postgres:17.2` image is pulled.
+`postgres:17.2-alpine` image is pulled.
 
 ## Java 26 / Maven / Spring Boot conventions for this project
 

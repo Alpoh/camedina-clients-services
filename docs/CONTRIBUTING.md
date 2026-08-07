@@ -27,7 +27,7 @@ Always use the Maven wrapper (`./mvnw`), not a system `mvn`, so builds use the v
 ./mvnw clean package                    # build the executable jar (target/*.jar)
 ```
 
-The first `test` or `spring-boot:run` will pull the `postgres:17.2` image, so expect it to be slower
+The first `test` or `spring-boot:run` will pull the `postgres:17.2-alpine` image, so expect it to be slower
 than subsequent runs.
 
 `./mvnw test` also produces a JaCoCo coverage report at `target/site/jacoco/index.html` — open it in a

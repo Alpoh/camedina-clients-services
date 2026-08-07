@@ -41,6 +41,18 @@ lives under `[Unreleased]`.
 - `springdoc-openapi-starter-webmvc-ui:2.8.6` — live OpenAPI 3.1 spec at `/v3/api-docs` and Swagger UI at
   `/swagger-ui/index.html`, generated entirely from the existing controllers/DTOs/validation annotations.
   Verified end-to-end: all 6 controllers/15 routes and every request/response schema show up correctly.
+- `Project`, as a `Client` sub-resource: `/api/v1/clients/{clientId}/projects`, mirroring the
+  `Phone`/`Address` CRUD pattern (own table, `client_id` FK with `ON DELETE CASCADE`, no "primary"
+  concept). Matches an existing external admin/portal frontend's mocked shape — a fixed `ProjectStatus`
+  enum (`PLANNING`/`IN_PROGRESS`/`BLOCKED`/`REVIEW`/`DONE`) wire-mapped via Jackson
+  `@JsonValue`/`@JsonCreator` to the frontend's lowercase-snake-case values (`planning`/`in_progress`/
+  etc.), confirmed correct both at runtime and in the generated OpenAPI schema's enum values. Strictly
+  single-client, no assignable staff (no `User`/auth concept exists yet).
+  `db/migration/V2__create_projects_table.sql`.
+- `GlobalExceptionHandler`: added `HttpMessageNotReadableException` (malformed JSON body, e.g. an
+  invalid enum value — 400, fixed non-leaky detail) and a catch-all `Exception` handler (500, fixed
+  detail, logs the real exception server-side via `@Slf4j`). Previously both fell through to Spring
+  Boot's default error handling and could leak a raw stack trace to the client.
 
 ### Changed
 - Both `Dockerfile` stages switched from Debian-based `eclipse-temurin:26-jdk`/`26-jre` to
