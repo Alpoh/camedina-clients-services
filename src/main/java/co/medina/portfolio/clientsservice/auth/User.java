@@ -1,4 +1,4 @@
-package co.medina.portfolio.clientsservice.client;
+package co.medina.portfolio.clientsservice.auth;
 
 import co.medina.portfolio.clientsservice.common.AuditableEntity;
 import jakarta.persistence.Column;
@@ -13,27 +13,27 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "clients")
+@Table(name = "users")
 @Getter
 @Setter
 @EqualsAndHashCode(of = "id", callSuper = false)
-public class Client extends AuditableEntity {
+public class User extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
-    private String name;
-
     @Column(nullable = false, unique = true)
     private String email;
 
-    protected Client() {
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+
+    protected User() {
     }
 
-    public Client(String name, String email) {
-        this.name = name;
+    public User(String email, String passwordHash) {
         this.email = email;
+        this.passwordHash = passwordHash;
     }
 }

@@ -2,19 +2,24 @@
 
 ## Status
 
-The `client` feature vertical is implemented: `Client` plus its `Phone` and `Address` sub-resources
-(see `docs/ARCHITECTURE.md`). This document describes the conventions endpoints follow, and should be
-kept in sync with the real endpoint reference below as more are added.
+The `client` feature vertical is implemented: `Client` plus its `Phone`/`Address`/`Project`
+sub-resources, alongside `auth` (self-issued JWT authentication) — see `docs/ARCHITECTURE.md`. This
+document describes the conventions endpoints follow, and should be kept in sync with the real endpoint
+reference below as more are added.
 
 **Interactive docs:** with the app running (`./mvnw spring-boot:run`), the full API is browsable at
 [`/swagger-ui/index.html`](http://localhost:8080/swagger-ui/index.html) (raw OpenAPI 3.1 spec at
 `/v3/api-docs`) — generated live from the controllers/DTOs/validation annotations via
-`springdoc-openapi-starter-webmvc-ui`, not hand-maintained.
+`springdoc-openapi-starter-webmvc-ui`, not hand-maintained. **Both now require a bearer token**, same as
+every other endpoint — see Auth below.
 
-**Auth:** no endpoint is authenticated or authorized today — Spring Security is the next planned
-addition (see `docs/PLAN.md`). Once it lands, `/swagger-ui/**`/`/v3/api-docs/**` must be locked down
-outside dev/staging, and this section should document the chosen auth model (headers/tokens expected on
-requests).
+**Auth:** every endpoint requires `Authorization: Bearer <token>` except `POST /api/v1/auth/register`,
+`POST /api/v1/auth/login`, and `GET /actuator/health`. Get a token via register or login (see the Auth
+table below); tokens are HS256 JWTs valid for `security.jwt.expiration` (default 1 hour) with no
+refresh/revocation mechanism yet. A missing or invalid token returns a 401 `ProblemDetail`
+(`"detail": "Authentication required"`); bad login credentials also return a 401 `ProblemDetail`
+(`"detail": "Invalid credentials"` — deliberately generic, doesn't say whether the email or the password
+was wrong). There are no roles/authorities yet — every authenticated caller can do everything.
 
 ## Conventions (for endpoints as they're added)
 
@@ -43,6 +48,16 @@ requests).
   details beyond the primary key.
 
 ## Endpoints
+
+### Auth
+
+| Method | Path                    | Description                                    | Status |
+|--------|-------------------------|-------------------------------------------------|--------|
+| POST   | `/api/v1/auth/register` | Create a user, returns a token                  | 201, 400, 409 |
+| POST   | `/api/v1/auth/login`    | Authenticate, returns a token                   | 200, 400, 401 |
+
+Both return `{"token": "<jwt>"}`. Send it back as `Authorization: Bearer <token>` on every other
+request.
 
 ### Clients
 
@@ -91,5 +106,5 @@ index). A phone/address request for a client that doesn't exist, or a phone/addr
 
 `status` is a fixed enum, serialized as lowercase snake_case on the wire (matching the admin/portal
 frontend's existing contract): `planning`, `in_progress`, `blocked`, `review`, `done`. A project is
-strictly single-client with no assignee concept yet (no `User`/auth exists in this backend) — same
-cross-client 404 rule as phones/addresses.
+strictly single-client with no assignee concept yet — `User` now exists (see Auth above) but nothing
+links a `Project` to one; revisit if/when that's needed. Same cross-client 404 rule as phones/addresses.

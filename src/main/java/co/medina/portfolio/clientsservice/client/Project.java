@@ -1,5 +1,6 @@
 package co.medina.portfolio.clientsservice.client;
 
+import co.medina.portfolio.clientsservice.common.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

@@ -1,4 +1,4 @@
-package co.medina.portfolio.clientsservice.client;
+package co.medina.portfolio.clientsservice.common;
 
 public class NotFoundException extends RuntimeException {
 

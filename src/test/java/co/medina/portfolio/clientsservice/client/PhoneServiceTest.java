@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import co.medina.portfolio.clientsservice.common.NotFoundException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

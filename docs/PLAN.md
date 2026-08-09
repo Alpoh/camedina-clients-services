@@ -102,33 +102,46 @@ existing sub-resources) — still one feature vertical, not two.
 - **Public portfolio repo.** Added `README.md` (project overview, tech stack, getting-started commands)
   and an MIT `LICENSE` (declared in `pom.xml`'s `<licenses>` too). The GitHub repo
   (`Alpoh/camedina-clients-services`) is now public.
+- **Spring Security — second, genuinely independent feature vertical: `auth/`.** Self-issued JWT auth
+  (chosen over HTTP Basic/a shared API key — this is the pattern a real backend behind the admin/portal
+  frontend would use, and it exercises more of Spring Security: `UserDetailsService`, `PasswordEncoder`,
+  a custom filter, token issuance/validation). `User` (email, BCrypt-hashed password),
+  `db/migration/V3__create_users_table.sql`. `POST /api/v1/auth/register` and `POST /api/v1/auth/login`
+  (`permitAll`, return `{"token": "..."}`); every other endpoint now requires
+  `Authorization: Bearer <token>` — including Swagger UI/`/v3/api-docs` and `/actuator/info`/
+  `/actuator/metrics` (no dev/staging profile split exists yet to scope that more precisely; only
+  `/actuator/health` stays open, for the Dockerfile `HEALTHCHECK`). `JwtService` (HS256, `security.jwt.secret`
+  from `SECURITY_JWT_SECRET` env var / a labeled dev-only default) + `JwtAuthenticationFilter`, both
+  wired as `@Bean`s inside `SecurityConfig` rather than `@Component`-scanned — a scanned `Filter` bean
+  gets swept into every `@WebMvcTest` slice regardless of `addFilters` and fails to construct there
+  (found by actually running the test suite after adding Spring Security to the classpath, not by
+  inspection). `RestAuthenticationEntryPoint` + `GlobalExceptionHandler`'s new `AuthenticationException`
+  handler both return RFC 7807 `ProblemDetail` 401s with a generic "invalid credentials" detail — no
+  user enumeration. No roles/authorities yet, just authenticated-or-not.
+  Being the second independent vertical (not a `Client` sub-resource) also triggered the planned hoist:
+  `AuditableEntity`/`NotFoundException`/`ConflictException`/`GlobalExceptionHandler` moved from `client`
+  into a new shared `common` package, since `auth` needed them too. Verified end-to-end both via the
+  automated suite (`SecurityIntegrationTest` exercises the real filter chain; existing `@WebMvcTest`
+  classes got `@AutoConfigureMockMvc(addFilters = false)` to keep testing controller logic, not auth) and
+  manually via `spring-boot:run` + `curl` (register → 201 + token; duplicate email → 409; login with bad
+  password → 401; `/api/v1/clients` without a token → 401, with one → 200; `/actuator/health` open
+  without a token; Swagger's `/v3/api-docs` now 401 without one).
 
 ## Suggested next steps
 
 Roughly in the order they unblock each other; not a hard commitment, just a proposed path — revisit as
 priorities change.
 
-1. **Spring Security — next up.** Nothing protects any endpoint today (no `User`/principal concept
-   exists). When it lands:
-   - Lock down `/swagger-ui/**` and `/v3/api-docs/**` outside dev/staging.
-   - Restrict actuator endpoints beyond `/actuator/health` (`/actuator/info`, `/actuator/metrics`) to
-     authenticated/authorized requests, and reconsider whether `management.endpoint.health.show-details`
-     should move off `never` for authorized callers.
-   - Decide the auth model (e.g. JWT resource server vs. session-based) before wiring
-     `SecurityFilterChain` — this repo has no existing auth pattern to match, so it's a real design
-     choice, not a mechanical addition.
-   - Revisit whether `Project` needs an assignable-staff concept once a real `User`/principal exists.
-   - Update `docs/API.md`'s conventions section and `CLAUDE.md` with the chosen auth model once it's
-     decided.
-2. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
+1. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
    automated gate beyond running tests locally.
-3. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
+2. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
    (DB calls, external HTTP) worth benefiting from it.
-4. **A genuinely independent second feature vertical** (not a `Client` sub-resource) to validate the
-   package-by-feature pattern generalizes beyond `client/` — also the trigger to hoist
-   `NotFoundException`/`ConflictException`/`GlobalExceptionHandler` out of the `client` package into a
-   shared one, since they're reused across everything in it (`Client`, `Phone`, `Address`, `Project`)
-   but nothing outside it yet.
+3. **Roles/authorities**, once an endpoint actually needs to distinguish callers (e.g. an assignable-staff
+   concept for `Project`, now that a real `User`/principal exists) — today's auth is deliberately just
+   authenticated-or-not.
+4. **Refresh tokens / logout**, if session length in practice turns out to need it — today's JWTs are
+   short-lived (`security.jwt.expiration`, default `PT1H`) with no revocation mechanism, which is fine for
+   a portfolio service but worth flagging as a real gap for anything beyond that.
 
 ## How to update this doc
 

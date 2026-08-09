@@ -15,6 +15,7 @@ no hexagonal/layered top-level structure — see [Package layout](#package-layou
 | Migrations      | Flyway (`spring-boot-starter-flyway` + `flyway-database-postgresql`) |
 | API docs        | `springdoc-openapi-starter-webmvc-ui` — live OpenAPI 3.1 + Swagger UI, generated from code |
 | Health/metrics  | `spring-boot-starter-actuator` — `/actuator/health`, `/actuator/info`, `/actuator/metrics` |
+| Auth            | `spring-boot-starter-security` + self-issued JWTs (`io.jsonwebtoken:jjwt-*`) — no external identity provider |
 | Local infra     | Docker Compose (`compose.yaml`), auto-wired by `spring-boot-docker-compose` |
 | Packaging       | Multi-stage `Dockerfile` (Eclipse Temurin 26), or Cloud Native Buildpacks via `spring-boot:build-image` |
 | Boilerplate     | Lombok (constructor/getter generation only — not `@Data` on entities) |
@@ -39,6 +40,15 @@ src/main/java/co/medina/portfolio/clientsservice/
     ClientController.java                          {Phone,Address,Project}Controller.java
     ClientRequest.java / ClientResponse.java (record DTOs, one pair each per resource)
     ProjectStatus.java           # enum, Jackson @JsonValue/@JsonCreator maps to lowercase wire values
+  auth/                         # second feature package — self-issued JWT auth
+    User.java (JPA entity) / UserRepository.java
+    RegisterRequest.java / LoginRequest.java / AuthResponse.java (record DTOs)
+    AuthService.java / AuthController.java
+    JwtProperties.java           # @ConfigurationProperties(prefix = "security.jwt")
+    JwtService.java               # issues/validates HS256 tokens
+    UserDetailsServiceImpl.java / JwtAuthenticationFilter.java / RestAuthenticationEntryPoint.java
+    SecurityConfig.java          # SecurityFilterChain; wires the filter/entry point above as @Beans
+  common/                       # shared across feature packages
     AuditableEntity.java         # @MappedSuperclass: createdAt/updatedAt via @PrePersist/@PreUpdate
     NotFoundException.java / ConflictException.java / GlobalExceptionHandler.java (@RestControllerAdvice)
 ```
@@ -46,15 +56,15 @@ src/main/java/co/medina/portfolio/clientsservice/
 a bidirectional JPA relationship on `Client`. All three live in the `client` package alongside `Client`
 itself, not in separate feature packages of their own — same reasoning for `Project` as for
 `Phone`/`Address`, even though `Project` has more of an independent lifecycle than a pure attribute
-would. `NotFoundException`/`ConflictException`/`GlobalExceptionHandler` live in `client/` for now since
-it's still the only feature package; hoist them to a shared package once a genuinely independent second
-vertical needs them too.
+would. `NotFoundException`/`ConflictException`/`GlobalExceptionHandler`/`AuditableEntity` used to live in
+`client/`, back when it was the only feature package; `auth` becoming a second, genuinely independent
+vertical triggered the planned hoist into `common/`.
 
 ## Persistence
 
 - `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime) are on the classpath.
-- Four entities so far: `Client`, `Phone`, `Address`, `Project` (all `client` package) — see
-  [Package layout](#package-layout).
+- Five entities so far: `Client`, `Phone`, `Address`, `Project` (`client` package), `User` (`auth`
+  package) — see [Package layout](#package-layout).
 - **Schema migrations own the schema, Hibernate only validates.** `spring-boot-starter-flyway` +
   `flyway-database-postgresql` are on the runtime classpath, and `spring.jpa.hibernate.ddl-auto=validate`
   is set — Hibernate never generates DDL; it just checks entities against whatever Flyway has applied.
@@ -64,7 +74,8 @@ vertical needs them too.
   `client_phones`, `client_addresses` — including a partial unique index per phones/addresses table
   (`WHERE is_primary`) enforcing at most one primary row per client as defense-in-depth alongside the
   service-layer logic. `V2__create_projects_table.sql` creates `projects` (FK to `clients`,
-  `ON DELETE CASCADE`, no primary-flag concept needed).
+  `ON DELETE CASCADE`, no primary-flag concept needed). `V3__create_users_table.sql` creates `users`
+  (unique email, BCrypt password hash).
 - Local dev and tests get a real Postgres instance for free: `compose.yaml` defines a
   `postgres:17.2-alpine` service, and `spring-boot-docker-compose` starts it and injects
   `spring.datasource.*` automatically for
@@ -84,6 +95,26 @@ full list aimed at AI coding agents):
 - Config grouped as `@ConfigurationProperties` records rather than scattered `@Value` fields.
 - Profile-specific behavior lives in `application-<profile>.properties`, not `@Profile`-guarded beans,
   unless the branching is genuinely code rather than config.
+
+## Security
+
+- Self-issued JWT authentication (`auth` package) — no external identity provider (Keycloak/Auth0/etc.).
+  `POST /api/v1/auth/register` and `POST /api/v1/auth/login` are the only `permitAll` routes (besides
+  `/actuator/health`); every other endpoint requires `Authorization: Bearer <token>`, enforced by
+  `SecurityConfig`'s `SecurityFilterChain` (`SessionCreationPolicy.STATELESS`, CSRF disabled — no
+  cookies, nothing to forge).
+- `JwtService` issues/validates HS256 tokens signed with `security.jwt.secret` (a
+  `@ConfigurationProperties` record, `JwtProperties`); `security.jwt.expiration` defaults to `PT1H`. The
+  secret follows the same env-var-override pattern as `spring.datasource.*` (see `CLAUDE.md`'s Secrets
+  note) — a labeled dev-only default in `application.properties`, overridden via `SECURITY_JWT_SECRET`
+  in any real deployment.
+- `JwtAuthenticationFilter` and `RestAuthenticationEntryPoint` are wired as `@Bean`s inside
+  `SecurityConfig`, not `@Component`-scanned: a component-scanned `Filter` bean gets swept into every
+  `@WebMvcTest` slice regardless of `addFilters`, and fails to construct there for lack of
+  `JwtService`/`UserDetailsServiceImpl` in that minimal context — found by running the suite after
+  adding Spring Security, not by inspection.
+- No roles/authorities exist yet, just authenticated-or-not — add a roles concept only once an endpoint
+  actually needs to distinguish callers.
 
 ## Local development & Docker
 
@@ -123,12 +154,16 @@ full list aimed at AI coding agents):
 - `jacoco-maven-plugin` is bound to `./mvnw test` (agent attached via `prepare-agent`, HTML/XML/CSV
   report generated in the `test` phase itself). Reports land in `target/site/jacoco/`; no coverage
   threshold is enforced yet.
+- `@WebMvcTest` controller tests carry `@AutoConfigureMockMvc(addFilters = false)` so they test
+  controller/serialization/validation logic without the real security filter chain in the way — security
+  behavior itself (401 without a token, 200 with one, `/actuator/health` staying open) is covered by one
+  dedicated `SecurityIntegrationTest` (`@SpringBootTest`) instead.
 
 ## Current status / roadmap
 
-The `client` feature vertical is implemented end-to-end: `Client` plus independently-managed `Phone`/
-`Address`/`Project` sub-resources, full CRUD REST API, Flyway-owned schema, `ProblemDetail` error
-handling, OpenAPI/Swagger docs, Actuator health/metrics, and test coverage across all three layers. No
-auth exists yet — every endpoint (including Swagger UI and the actuator endpoints) is unauthenticated.
-See `docs/PLAN.md` for what's next: Spring Security is the immediate next step, followed by CI and a
-second, genuinely independent feature vertical.
+Two feature verticals are implemented end-to-end: `client` (`Client` plus independently-managed `Phone`/
+`Address`/`Project` sub-resources, full CRUD REST API) and `auth` (self-issued JWT authentication —
+register/login, every other endpoint requires a bearer token). Flyway-owned schema, `ProblemDetail`
+error handling, OpenAPI/Swagger docs (now behind auth), Actuator health/metrics (only `/actuator/health`
+stays open), and test coverage across all layers. See `docs/PLAN.md` for what's next: a CI pipeline,
+virtual threads, and roles/authorities once an endpoint needs to distinguish callers.

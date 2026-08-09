@@ -1,5 +1,7 @@
 package co.medina.portfolio.clientsservice.client;
 
+import co.medina.portfolio.clientsservice.common.ConflictException;
+import co.medina.portfolio.clientsservice.common.NotFoundException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;

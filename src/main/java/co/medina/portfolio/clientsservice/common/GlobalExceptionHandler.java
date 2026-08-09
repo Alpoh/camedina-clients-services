@@ -1,4 +1,4 @@
-package co.medina.portfolio.clientsservice.client;
+package co.medina.portfolio.clientsservice.common;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -26,6 +27,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     ProblemDetail handleConflict(ConflictException ex, HttpServletRequest request) {
         return problemDetail(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    ProblemDetail handleAuthentication(AuthenticationException ex, HttpServletRequest request) {
+        return problemDetail(HttpStatus.UNAUTHORIZED, "Invalid credentials", request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

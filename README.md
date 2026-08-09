@@ -6,6 +6,8 @@ Flyway-owned schema migrations.
 
 ## Features
 
+- **Auth** — self-issued JWT authentication (`POST /api/v1/auth/register`, `POST /api/v1/auth/login`);
+  every other endpoint requires a bearer token.
 - **Clients** — full CRUD, unique email, paged/sortable listing.
 - **Phones & addresses** — independently managed sub-resources per client, each enforcing "at most one
   primary" via service logic and a DB partial unique index.
@@ -31,6 +33,7 @@ Flyway-owned schema migrations.
 | Persistence | Spring Data JPA + Hibernate, PostgreSQL                                  |
 | Migrations  | Flyway                                                                   |
 | API docs    | `springdoc-openapi-starter-webmvc-ui` (OpenAPI 3.1 + Swagger UI)         |
+| Auth        | `spring-boot-starter-security` + self-issued JWTs (`io.jsonwebtoken:jjwt-*`) |
 | Local infra | Docker Compose (`compose.yaml`), auto-wired by `spring-boot-docker-compose` |
 | Packaging   | Multi-stage `Dockerfile` (Eclipse Temurin 26, Alpine)                    |
 
@@ -46,7 +49,18 @@ automatically via `spring-boot-docker-compose`).
 ```
 
 The app starts on `http://localhost:8080`. Interactive API docs are at
-[`/swagger-ui/index.html`](http://localhost:8080/swagger-ui/index.html).
+[`/swagger-ui/index.html`](http://localhost:8080/swagger-ui/index.html) — like every other endpoint
+except `/api/v1/auth/**` and `/actuator/health`, it now requires a bearer token:
+
+```bash
+# register (or POST /api/v1/auth/login if you already have an account) — returns {"token": "..."}
+curl -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"a-password-at-least-8-chars"}'
+
+# use the token on every other request
+curl http://localhost:8080/api/v1/clients -H "Authorization: Bearer <token>"
+```
 
 ```bash
 ./mvnw test      # run the test suite (starts Postgres via Docker Compose)

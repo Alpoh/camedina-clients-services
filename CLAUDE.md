@@ -15,14 +15,20 @@ real Postgres service, and `spring-boot-docker-compose` starts/wires it automati
 - Java: 26 (`java.version` in `pom.xml`)
 - Lombok + `spring-boot-configuration-processor` are wired into the annotation processor path
 - Web: `spring-boot-starter-web` (embedded Tomcat) — the app starts and stays running
-- Persistence: `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime). Four entities:
-  `Client`, `Phone`, `Address`, `Project` (`client` package) — see below.
+- Persistence: `spring-boot-starter-data-jpa` + `org.postgresql:postgresql` (runtime). Five entities:
+  `Client`, `Phone`, `Address`, `Project` (`client` package), `User` (`auth` package) — see below.
 - Migrations: Flyway (`spring-boot-starter-flyway` + `flyway-database-postgresql`, runtime) owns the
   schema; `spring.jpa.hibernate.ddl-auto=validate` means Hibernate never generates DDL, only validates
   entities against it. Flyway runs on every startup (`spring-boot:run` and `./mvnw test`) against
   `classpath:db/migration` (default location); `V1__create_client_tables.sql` creates `clients`,
-  `client_phones`, `client_addresses`; `V2__create_projects_table.sql` creates `projects`. The next
-  migration should land together with whatever `@Entity` needs it, not before.
+  `client_phones`, `client_addresses`; `V2__create_projects_table.sql` creates `projects`;
+  `V3__create_users_table.sql` creates `users`. The next migration should land together with whatever
+  `@Entity` needs it, not before.
+- `common` package (`co.medina.portfolio.clientsservice.common`): `AuditableEntity`
+  (`@MappedSuperclass` — `createdAt`/`updatedAt` via `@PrePersist`/`@PreUpdate`), `NotFoundException`/
+  `ConflictException`/`GlobalExceptionHandler` (`@RestControllerAdvice`). Hoisted out of `client` once
+  `auth` (a second, genuinely independent vertical) needed them too — don't put feature-specific code
+  here, only what's shared across verticals.
 - First feature vertical: `client` package (`co.medina.portfolio.clientsservice.client`) — `Client`
   (name, unique email) plus independently-managed `Phone`/`Address`/`Project` sub-resources (own tables,
   own `/api/v1/clients/{clientId}/phones|addresses|projects` endpoints, not nested in the client
@@ -30,29 +36,48 @@ real Postgres service, and `spring-boot-docker-compose` starts/wires it automati
   phone/address has a service-enforced "at most one primary per client" invariant (demoted on
   create/update, forced true when it's the client's only one), backed by a DB partial unique index
   (`WHERE is_primary`) as defense-in-depth — `Project` has no such concept. Full CRUD, `Pageable`/
-  `Page<T>` list endpoints, Bean Validation (ISO-3166-1 alpha-2 country codes on addresses),
-  `NotFoundException`/`ConflictException` mapped to RFC 7807 `ProblemDetail` via `GlobalExceptionHandler`
-  (`@RestControllerAdvice`), which also has a `HttpMessageNotReadableException` handler (malformed JSON
-  body, e.g. a bad enum value → clean 400) and a catch-all `Exception` handler (500, fixed detail, logs
-  server-side) so nothing leaks a raw stack trace. See `docs/API.md` for the full endpoint table. Query
-  methods are named `findById`/`findAll` (not `getById`/`getAll`) — `get*` reads as a plain accessor,
-  which these aren't (they take arguments, hit the DB, and can throw).
+  `Page<T>` list endpoints, Bean Validation (ISO-3166-1 alpha-2 country codes on addresses), errors
+  mapped to RFC 7807 `ProblemDetail` via the shared `GlobalExceptionHandler` (see `common` package
+  above). See `docs/API.md` for the full endpoint table. Query methods are named `findById`/`findAll`
+  (not `getById`/`getAll`) — `get*` reads as a plain accessor, which these aren't (they take arguments,
+  hit the DB, and can throw).
 - Ops: `spring-boot-starter-actuator` is wired in, exposing `/actuator/health` (with DB liveness via the
   JPA/Datasource health indicator), `/actuator/info`, `/actuator/metrics`
   (`management.endpoints.web.exposure.include=health,info,metrics`). Component `show-details` stays at
-  its default (`never`) since there's no auth yet — don't flip it to `always`/`when-authorized` until
-  Spring Security lands (see `docs/PLAN.md`'s next step). The Dockerfile `HEALTHCHECK` targets
-  `/actuator/health` instead of the business `/api/v1/clients` route it used to (pragmatic stand-in)
-  reuse before actuator existed.
-- No auth/`User` concept exists yet — **Spring Security is the next planned addition** (see
-  `docs/PLAN.md`). Until it lands, every endpoint (including Swagger UI, `/v3/api-docs`, and the
-  actuator endpoints above) is unauthenticated; don't assume any request is trusted/authorized.
+  its default (`never`) — no client of this API is authorized to see component-level detail. The
+  Dockerfile `HEALTHCHECK` targets `/actuator/health` instead of the business `/api/v1/clients` route it
+  used to (pragmatic stand-in) reuse before actuator existed. `/actuator/health` is the one endpoint left
+  open (`permitAll`, see below) so the container healthcheck — which sends no auth — keeps working.
+- Second feature vertical: `auth` package (`co.medina.portfolio.clientsservice.auth`) — self-issued JWT
+  authentication, no external identity provider. `User` (email, BCrypt `passwordHash`).
+  `POST /api/v1/auth/register` and `POST /api/v1/auth/login` (both `permitAll`) return
+  `{"token": "..."}`; every other endpoint requires `Authorization: Bearer <token>`.
+  `JwtService` issues/validates HS256 tokens signed with `security.jwt.secret`
+  (`security.jwt.expiration`, default `PT1H`) — a `@ConfigurationProperties` record (`JwtProperties`).
+  `JwtAuthenticationFilter` (a plain `OncePerRequestFilter`, wired as a `@Bean` inside `SecurityConfig`,
+  **not** `@Component`-scanned — a scanned `Filter` bean gets swept into every `@WebMvcTest` slice
+  regardless of `addFilters`, and fails to construct there for lack of `JwtService`/
+  `UserDetailsServiceImpl` in that minimal context; the same reasoning applies to
+  `RestAuthenticationEntryPoint`) reads the bearer token per request. `SecurityConfig`:
+  `SessionCreationPolicy.STATELESS`, CSRF disabled (no cookies, nothing to forge), `/api/v1/auth/**` and
+  `/actuator/health` `permitAll`, everything else `authenticated()` — this also locks down Swagger UI
+  and `/v3/api-docs`, and `/actuator/info`/`/actuator/metrics`, since there's no dev/staging profile
+  split to scope that to yet. `RestAuthenticationEntryPoint` returns a `ProblemDetail` 401 (not Spring
+  Security's default plain-text 401) for requests that reach a protected endpoint unauthenticated;
+  `GlobalExceptionHandler`'s `AuthenticationException` handler covers the other case — bad credentials on
+  `POST /api/v1/auth/login`, a manual `AuthenticationManager.authenticate()` call outside the filter
+  chain. Both return a generic "Invalid credentials"/"Authentication required" detail — never which part
+  was wrong, to avoid user enumeration. No roles/authorities concept yet, just authenticated-or-not;
+  add one only when an endpoint actually needs to distinguish callers.
+  `@WebMvcTest` classes for other controllers use `@AutoConfigureMockMvc(addFilters = false)` so they
+  keep testing controller logic, not auth — `SecurityIntegrationTest` (`auth` package, `@SpringBootTest`)
+  is the one test that exercises the real filter chain end to end.
 - `Project` matches an external admin/portal frontend (not in this repo) that already mocks per-client
   projects with statuses. `ProjectStatus` is a fixed Java enum (`PLANNING`/`IN_PROGRESS`/`BLOCKED`/
   `REVIEW`/`DONE`) but serializes/deserializes as the frontend's existing lowercase-snake-case values
   (`planning`/`in_progress`/etc.) via Jackson `@JsonValue`/`@JsonCreator` — match an established external
   wire contract exactly rather than introducing a casing mismatch. Strictly single-client, no assignable
-  staff (no `User`/auth concept exists in this backend yet).
+  staff — `User` now exists (`auth` package, see below) but nothing links a `Project` to one yet.
 - **`Pageable` controller parameters need `@ParameterObject`** (`org.springdoc.core.annotations`) or
   springdoc renders `page`/`size`/`sort` as one opaque object query param instead of three separate,
   documented ones — confirmed broken without it on this springdoc/Spring Boot combo (springdoc's
@@ -216,8 +241,10 @@ piece of the stack actually exists — don't build the infrastructure for them s
   `@OneToMany`/`@ManyToOne` is ever added, fetch what's needed with a fetch-join query or `@EntityGraph`
   rather than looping and lazy-loading.
 - **Secrets never get committed or baked into images.** Already the pattern for `spring.datasource.*` in
-  prod (env vars, no compose file outside dev — see Docker Compose integration above); keep any future
-  secret (API keys, JWT signing keys) the same way.
+  prod (env vars, no compose file outside dev — see Docker Compose integration above); `security.jwt.secret`
+  follows the same shape (`${SECURITY_JWT_SECRET:dev-only-...}` in `application.properties` — the
+  fallback is a labeled dev-only placeholder, not a real secret, overridden via env var in any real
+  deployment). Keep any future secret the same way.
 - **CORS: when a frontend/browser consumer exists**, configure explicit allowed origins per environment
   (`CorsConfigurationSource` bean) rather than a wildcard `*` — there's no browser-facing consumer yet,
   so nothing to configure today.
@@ -228,11 +255,11 @@ piece of the stack actually exists — don't build the infrastructure for them s
 - **Health/readiness probes:** `spring-boot-starter-actuator` is wired in; the Dockerfile `HEALTHCHECK`
   targets `/actuator/health`, and any future orchestrator's liveness/readiness checks should do the same
   instead of a hand-rolled ping endpoint.
-- **Authentication/authorization: Spring Security is the next planned addition** (see `docs/PLAN.md`) —
-  there's nothing protecting any endpoint today. When it lands: lock down `/swagger-ui/**`/
-  `/v3/api-docs/**` outside dev/staging, restrict actuator endpoints beyond `/actuator/health` to
-  authenticated/authorized requests (and reconsider `show-details` above), and revisit whether `Project`
-  needs an assignable-staff concept once a real `User`/principal exists.
+- **Authentication/authorization:** self-issued JWT auth (`auth` package, see above) — every endpoint
+  except `/api/v1/auth/**` and `/actuator/health` requires a valid bearer token, which also means
+  Swagger UI/`/v3/api-docs` and `/actuator/info`/`/actuator/metrics` are locked down today (no
+  dev/staging profile split exists to scope that more precisely). Revisit whether `Project` needs an
+  assignable-staff concept now that a real `User`/principal exists.
 - **Structured/JSON logging in production**, plain console logging (current default) is fine for local
   dev — revisit when there's a real log aggregator to ship to.
 - **Postgres column types must match what Hibernate expects under `ddl-auto=validate`**, or the app
@@ -249,8 +276,9 @@ piece of the stack actually exists — don't build the infrastructure for them s
 - **OpenAPI/Swagger, once `springdoc-openapi` lands** (see `docs/PLAN.md`): let the spec generate from
   the existing controllers/DTOs (`@Valid`, Bean Validation annotations, and Javadoc already describe the
   shape) rather than growing a hand-maintained separate spec file that can drift from the real API. Use
-  `@Schema`/`@Operation` descriptions only where the code doesn't already make intent obvious. Don't
-  expose Swagger UI outside dev/staging without auth once the app is public.
+  `@Schema`/`@Operation` descriptions only where the code doesn't already make intent obvious. Swagger UI
+  now requires the same bearer-token auth as every other endpoint (see Authentication/authorization
+  above) — there's no unauthenticated way to browse it, by design.
 
 ## Docker / packaging
 

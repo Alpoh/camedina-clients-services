@@ -59,8 +59,32 @@ lives under `[Unreleased]`.
   `never` default (no auth yet to gate it behind).
 - `README.md` — project overview, tech stack, getting-started commands, links to `docs/`.
 - MIT `LICENSE`, also declared in `pom.xml`'s `<licenses>` block. The GitHub repo is now public.
+- Second feature vertical: `auth` package, self-issued JWT authentication (`spring-boot-starter-security`
+  + `io.jsonwebtoken:jjwt-api`/`jjwt-impl`/`jjwt-jackson:0.13.0`). `User` (email, BCrypt password hash),
+  `db/migration/V3__create_users_table.sql`. `POST /api/v1/auth/register` and `POST /api/v1/auth/login`
+  (both `permitAll`) return `{"token": "..."}`; every other endpoint now requires
+  `Authorization: Bearer <token>` — `SecurityConfig` permits only `/api/v1/auth/**` and
+  `/actuator/health`, `anyRequest().authenticated()` for the rest, which also locks down Swagger UI/
+  `/v3/api-docs` and `/actuator/info`/`/actuator/metrics` (no dev/staging profile split exists yet to
+  scope that more precisely). `JwtService` issues/validates HS256 tokens
+  (`security.jwt.secret`/`security.jwt.expiration`, a new `JwtProperties` `@ConfigurationProperties`
+  record). `RestAuthenticationEntryPoint` (unauthenticated request to a protected endpoint) and a new
+  `GlobalExceptionHandler.handleAuthentication` (`AuthenticationException`, e.g. bad login credentials)
+  both return RFC 7807 `ProblemDetail` 401s with a generic "invalid credentials"/"authentication
+  required" detail, not which part was wrong. No roles/authorities yet, just authenticated-or-not.
+  Verified end-to-end via the automated suite and manually via `spring-boot:run` + `curl` (register,
+  duplicate-email 409, login, bad-password 401, protected endpoint 401/200, `/actuator/health` open,
+  Swagger now 401).
+- `SecurityIntegrationTest` (`@SpringBootTest`) — exercises the real `SecurityFilterChain` end to end
+  (unauthenticated 401, valid token 200, token for a deleted/unknown user 401, `/actuator/health` open).
 
 ### Changed
+- `AuditableEntity`/`NotFoundException`/`ConflictException`/`GlobalExceptionHandler` moved from `client`
+  to a new shared `common` package — `auth` becoming a second, genuinely independent feature vertical
+  triggered the hoist `docs/PLAN.md` had flagged as the eventual trigger.
+- Existing `@WebMvcTest` classes (`ClientControllerTest`, `PhoneControllerTest`, `AddressControllerTest`,
+  `ProjectControllerTest`) gained `@AutoConfigureMockMvc(addFilters = false)` so they keep testing
+  controller logic rather than the new security filter chain.
 - Dockerfile `HEALTHCHECK` switched from the business `/api/v1/clients` route to `/actuator/health` now
   that `spring-boot-starter-actuator` is on the classpath.
 - Both `Dockerfile` stages switched from Debian-based `eclipse-temurin:26-jdk`/`26-jre` to
