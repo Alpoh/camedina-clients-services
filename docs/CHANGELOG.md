@@ -53,8 +53,16 @@ lives under `[Unreleased]`.
   invalid enum value — 400, fixed non-leaky detail) and a catch-all `Exception` handler (500, fixed
   detail, logs the real exception server-side via `@Slf4j`). Previously both fell through to Spring
   Boot's default error handling and could leak a raw stack trace to the client.
+- `spring-boot-starter-actuator`: `/actuator/health` (with DB liveness via the JPA/Datasource health
+  indicator), `/actuator/info`, `/actuator/metrics` exposed via
+  `management.endpoints.web.exposure.include=health,info,metrics`; component `show-details` left at its
+  `never` default (no auth yet to gate it behind).
+- `README.md` — project overview, tech stack, getting-started commands, links to `docs/`.
+- MIT `LICENSE`, also declared in `pom.xml`'s `<licenses>` block. The GitHub repo is now public.
 
 ### Changed
+- Dockerfile `HEALTHCHECK` switched from the business `/api/v1/clients` route to `/actuator/health` now
+  that `spring-boot-starter-actuator` is on the classpath.
 - Both `Dockerfile` stages switched from Debian-based `eclipse-temurin:26-jdk`/`26-jre` to
   `26-jdk-alpine`/`26-jre-alpine` — ~40% smaller runtime image (~312MB vs. ~517MB). Required switching
   `addgroup`/`adduser` to BusyBox's short-flag syntax (`-S`/`-G`) instead of Debian shadow-utils' long

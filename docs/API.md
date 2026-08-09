@@ -1,6 +1,6 @@
 # API
 
-## Status5
+## Status
 
 The `client` feature vertical is implemented: `Client` plus its `Phone` and `Address` sub-resources
 (see `docs/ARCHITECTURE.md`). This document describes the conventions endpoints follow, and should be
@@ -9,8 +9,12 @@ kept in sync with the real endpoint reference below as more are added.
 **Interactive docs:** with the app running (`./mvnw spring-boot:run`), the full API is browsable at
 [`/swagger-ui/index.html`](http://localhost:8080/swagger-ui/index.html) (raw OpenAPI 3.1 spec at
 `/v3/api-docs`) — generated live from the controllers/DTOs/validation annotations via
-`springdoc-openapi-starter-webmvc-ui`, not hand-maintained. Not access-controlled yet; lock it down
-outside dev/staging once the app has real auth (see `docs/PLAN.md`).
+`springdoc-openapi-starter-webmvc-ui`, not hand-maintained.
+
+**Auth:** no endpoint is authenticated or authorized today — Spring Security is the next planned
+addition (see `docs/PLAN.md`). Once it lands, `/swagger-ui/**`/`/v3/api-docs/**` must be locked down
+outside dev/staging, and this section should document the chosen auth model (headers/tokens expected on
+requests).
 
 ## Conventions (for endpoints as they're added)
 

@@ -94,22 +94,37 @@ Working status/roadmap doc for `clients-service`. For the detailed change histor
 `Project` lives in the same `client` package as `Client`/`Phone`/`Address` (same reasoning as the
 existing sub-resources) — still one feature vertical, not two.
 
+- **`spring-boot-starter-actuator`** added for health/metrics: `/actuator/health` (with DB liveness via
+  the JPA/Datasource health indicator), `/actuator/info`, `/actuator/metrics` exposed
+  (`management.endpoints.web.exposure.include=health,info,metrics`; component `show-details` stays at
+  its `never` default — no auth yet to gate it behind). The Dockerfile `HEALTHCHECK` now targets
+  `/actuator/health` instead of the business `/api/v1/clients` route it pragmatically reused before.
+- **Public portfolio repo.** Added `README.md` (project overview, tech stack, getting-started commands)
+  and an MIT `LICENSE` (declared in `pom.xml`'s `<licenses>` too). The GitHub repo
+  (`Alpoh/camedina-clients-services`) is now public.
+
 ## Suggested next steps
 
 Roughly in the order they unblock each other; not a hard commitment, just a proposed path — revisit as
 priorities change.
 
-1. **`spring-boot-starter-actuator`** for health/metrics — would let the Dockerfile's `HEALTHCHECK`
-   target a proper `/actuator/health` endpoint instead of the business `/api/v1/clients` route it
-   currently (pragmatically) reuses.
+1. **Spring Security — next up.** Nothing protects any endpoint today (no `User`/principal concept
+   exists). When it lands:
+   - Lock down `/swagger-ui/**` and `/v3/api-docs/**` outside dev/staging.
+   - Restrict actuator endpoints beyond `/actuator/health` (`/actuator/info`, `/actuator/metrics`) to
+     authenticated/authorized requests, and reconsider whether `management.endpoint.health.show-details`
+     should move off `never` for authorized callers.
+   - Decide the auth model (e.g. JWT resource server vs. session-based) before wiring
+     `SecurityFilterChain` — this repo has no existing auth pattern to match, so it's a real design
+     choice, not a mechanical addition.
+   - Revisit whether `Project` needs an assignable-staff concept once a real `User`/principal exists.
+   - Update `docs/API.md`'s conventions section and `CLAUDE.md` with the chosen auth model once it's
+     decided.
 2. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
    automated gate beyond running tests locally.
 3. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
    (DB calls, external HTTP) worth benefiting from it.
-4. **Security** (Spring Security / auth) once there's something worth protecting — also when this
-   lands, lock down `/swagger-ui/**`/`/v3/api-docs/**` outside dev/staging per `CLAUDE.md`'s convention,
-   and revisit whether `Project` needs assignable staff once a real `User` concept exists.
-5. **A genuinely independent second feature vertical** (not a `Client` sub-resource) to validate the
+4. **A genuinely independent second feature vertical** (not a `Client` sub-resource) to validate the
    package-by-feature pattern generalizes beyond `client/` — also the trigger to hoist
    `NotFoundException`/`ConflictException`/`GlobalExceptionHandler` out of the `client` package into a
    shared one, since they're reused across everything in it (`Client`, `Phone`, `Address`, `Project`)

@@ -14,6 +14,7 @@ no hexagonal/layered top-level structure — see [Package layout](#package-layou
 | Persistence     | Spring Data JPA + Hibernate, PostgreSQL                              |
 | Migrations      | Flyway (`spring-boot-starter-flyway` + `flyway-database-postgresql`) |
 | API docs        | `springdoc-openapi-starter-webmvc-ui` — live OpenAPI 3.1 + Swagger UI, generated from code |
+| Health/metrics  | `spring-boot-starter-actuator` — `/actuator/health`, `/actuator/info`, `/actuator/metrics` |
 | Local infra     | Docker Compose (`compose.yaml`), auto-wired by `spring-boot-docker-compose` |
 | Packaging       | Multi-stage `Dockerfile` (Eclipse Temurin 26), or Cloud Native Buildpacks via `spring-boot:build-image` |
 | Boilerplate     | Lombok (constructor/getter generation only — not `@Data` on entities) |
@@ -102,10 +103,10 @@ full list aimed at AI coding agents):
 - **Alpine ships BusyBox, not GNU coreutils/bash** — this affects two things in the Dockerfile:
   `addgroup -S spring && adduser -S -G spring spring` (BusyBox's short-flag syntax, not Debian
   shadow-utils' long flags), and the `HEALTHCHECK`, which uses BusyBox `wget --spider -q -T 3` against
-  `http://localhost:8080/api/v1/clients` (no `bash`/`curl` available to do a `/dev/tcp` trick or a curl
-  check). Reusing a business endpoint for the healthcheck is a pragmatic stand-in — it does mean today's
-  healthcheck actually verifies DB connectivity, not just "Tomcat is listening." Revisit with a dedicated
-  `/actuator/health` check once `spring-boot-starter-actuator` lands (see `docs/PLAN.md`).
+  `http://localhost:8080/actuator/health` (no `bash`/`curl` available to do a `/dev/tcp` trick or a curl
+  check). `spring-boot-starter-actuator`'s health endpoint includes the JPA/Datasource health indicator,
+  so the healthcheck still verifies DB connectivity, not just "Tomcat is listening" — it previously
+  reused the business `/api/v1/clients` route for the same reason, before actuator existed.
 
 ## Testing strategy
 
@@ -126,6 +127,8 @@ full list aimed at AI coding agents):
 ## Current status / roadmap
 
 The `client` feature vertical is implemented end-to-end: `Client` plus independently-managed `Phone`/
-`Address` sub-resources, full CRUD REST API, Flyway-owned schema, `ProblemDetail` error handling, and
-test coverage across all three layers. See `docs/PLAN.md` for what's next (actuator, OpenAPI docs, CI,
-a second feature vertical).
+`Address`/`Project` sub-resources, full CRUD REST API, Flyway-owned schema, `ProblemDetail` error
+handling, OpenAPI/Swagger docs, Actuator health/metrics, and test coverage across all three layers. No
+auth exists yet — every endpoint (including Swagger UI and the actuator endpoints) is unauthenticated.
+See `docs/PLAN.md` for what's next: Spring Security is the immediate next step, followed by CI and a
+second, genuinely independent feature vertical.

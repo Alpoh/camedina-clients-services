@@ -37,6 +37,16 @@ real Postgres service, and `spring-boot-docker-compose` starts/wires it automati
   server-side) so nothing leaks a raw stack trace. See `docs/API.md` for the full endpoint table. Query
   methods are named `findById`/`findAll` (not `getById`/`getAll`) — `get*` reads as a plain accessor,
   which these aren't (they take arguments, hit the DB, and can throw).
+- Ops: `spring-boot-starter-actuator` is wired in, exposing `/actuator/health` (with DB liveness via the
+  JPA/Datasource health indicator), `/actuator/info`, `/actuator/metrics`
+  (`management.endpoints.web.exposure.include=health,info,metrics`). Component `show-details` stays at
+  its default (`never`) since there's no auth yet — don't flip it to `always`/`when-authorized` until
+  Spring Security lands (see `docs/PLAN.md`'s next step). The Dockerfile `HEALTHCHECK` targets
+  `/actuator/health` instead of the business `/api/v1/clients` route it used to (pragmatic stand-in)
+  reuse before actuator existed.
+- No auth/`User` concept exists yet — **Spring Security is the next planned addition** (see
+  `docs/PLAN.md`). Until it lands, every endpoint (including Swagger UI, `/v3/api-docs`, and the
+  actuator endpoints above) is unauthenticated; don't assume any request is trusted/authorized.
 - `Project` matches an external admin/portal frontend (not in this repo) that already mocks per-client
   projects with statuses. `ProjectStatus` is a fixed Java enum (`PLANNING`/`IN_PROGRESS`/`BLOCKED`/
   `REVIEW`/`DONE`) but serializes/deserializes as the frontend's existing lowercase-snake-case values
@@ -215,9 +225,14 @@ piece of the stack actually exists — don't build the infrastructure for them s
   edge (gateway/ingress) or via a library (e.g. Bucket4j) rather than hand-rolling per-endpoint counters.
 - **TLS termination happens at the edge** (load balancer/ingress/reverse proxy), not in the Spring app
   itself — don't add an embedded-Tomcat SSL config for this.
-- **Health/readiness probes: once `spring-boot-starter-actuator` lands** (see `docs/PLAN.md`), wire
-  `/actuator/health` into the Dockerfile `HEALTHCHECK` and any orchestrator's liveness/readiness checks
+- **Health/readiness probes:** `spring-boot-starter-actuator` is wired in; the Dockerfile `HEALTHCHECK`
+  targets `/actuator/health`, and any future orchestrator's liveness/readiness checks should do the same
   instead of a hand-rolled ping endpoint.
+- **Authentication/authorization: Spring Security is the next planned addition** (see `docs/PLAN.md`) —
+  there's nothing protecting any endpoint today. When it lands: lock down `/swagger-ui/**`/
+  `/v3/api-docs/**` outside dev/staging, restrict actuator endpoints beyond `/actuator/health` to
+  authenticated/authorized requests (and reconsider `show-details` above), and revisit whether `Project`
+  needs an assignable-staff concept once a real `User`/principal exists.
 - **Structured/JSON logging in production**, plain console logging (current default) is fine for local
   dev — revisit when there's a real log aggregator to ship to.
 - **Postgres column types must match what Hibernate expects under `ddl-auto=validate`**, or the app
@@ -246,10 +261,10 @@ piece of the stack actually exists — don't build the infrastructure for them s
   - **`addgroup`/`adduser` use BusyBox's short-flag syntax**: `addgroup -S spring && adduser -S -G spring
     spring`, not Debian shadow-utils' `addgroup --system` / `adduser --system --ingroup`.
   - **No `bash`, no `curl` — only BusyBox `sh` and `wget`.** The `HEALTHCHECK` uses
-    `wget --spider -q -T 3 http://localhost:8080/api/v1/clients`, not a `bash`-`/dev/tcp` trick. Reusing
-    a business endpoint (rather than a dedicated health route) is a pragmatic stand-in until actuator
-    lands — it does mean the healthcheck actually exercises DB connectivity today, not just "Tomcat is
-    listening."
+    `wget --spider -q -T 3 http://localhost:8080/actuator/health`, not a `bash`-`/dev/tcp` trick. Actuator's
+    health endpoint includes the JPA/Datasource health indicator, so the healthcheck still exercises DB
+    connectivity, not just "Tomcat is listening" — it previously reused the business `/api/v1/clients`
+    route for the same reason, before actuator existed.
   - `build` stage: runs `./mvnw package` (with a `/root/.m2` cache mount), then
     `java -Djarmode=tools -jar target/*.jar extract --layers --destination extracted` — Spring Boot 4's
     `tools` jarmode (replaces the old 3.x `layertools` mode), which produces a thin `application/*.jar`
