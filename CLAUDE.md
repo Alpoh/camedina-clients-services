@@ -314,18 +314,34 @@ piece of the stack actually exists — don't build the infrastructure for them s
 
 ## CI/CD
 
-`.github/workflows/ci-cd.yml`, two jobs:
-- `build` — runs `./mvnw verify` on every push/PR against `main`. Needs no special setup beyond
+Two separate workflow files under `.github/workflows/` — not yet consolidated, see the open item in
+`docs/PLAN.md`:
+
+- **`ci-cd.yml`** (`build` + `docker` jobs) — the original build/publish gate. `build` runs
+  `./mvnw verify` on every push/PR against `main`. Needs no special setup beyond
   `actions/setup-java@v4` (Temurin 26) — `ubuntu-latest` ships Docker, so `spring-boot-docker-compose`
   starting the real `postgres:17.2-alpine` from `compose.yaml` for the test suite works the same as it
-  does locally; no Testcontainers/H2 substitution needed.
-- `docker` — `needs: build`, gated with `if: github.event_name == 'push' && github.ref ==
-  'refs/heads/main'` so it never runs on PRs or other branches. Builds the existing `Dockerfile` and
-  pushes to GHCR (`ghcr.io/alpoh/camedina-clients-services`, tags `latest` and `${{ github.sha }}`),
-  authenticated via the workflow's own `secrets.GITHUB_TOKEN` with a job-scoped `packages: write`
-  permission — no registry credential to provision or rotate. A pushed GHCR package still defaults to
-  **private** even though the repo is public; that visibility toggle lives in the package's own GHCR
-  settings and can't be set from the workflow.
-- This publishes an image; nothing currently pulls and runs it anywhere (see `docs/PLAN.md`'s suggested
-  next steps for picking an actual deploy target). Don't add a deploy step here speculatively before a
-  target is chosen.
+  does locally; no Testcontainers/H2 substitution needed. `docker` (`needs: build`, gated with
+  `if: github.event_name == 'push' && github.ref == 'refs/heads/main'` so it never runs on PRs or other
+  branches) builds the existing `Dockerfile` and pushes to GHCR (`ghcr.io/alpoh/camedina-clients-services`,
+  tags `latest` and `${{ github.sha }}`), authenticated via the workflow's own `secrets.GITHUB_TOKEN`
+  with a job-scoped `packages: write` permission — no registry credential to provision or rotate. A
+  pushed GHCR package still defaults to **private** even though the repo is public; that visibility
+  toggle lives in the package's own GHCR settings and can't be set from the workflow.
+- **`deploy.yml`** (`test` + `build-and-deploy` jobs) — picks the deploy target `ci-cd.yml` deliberately
+  left open: AWS ECS. Triggers on push to `main`. `test` re-runs `./mvnw test`; `build-and-deploy`
+  (`needs: test`) authenticates to AWS via OIDC (`permissions: id-token: write`,
+  `aws-actions/configure-aws-credentials@v4` assuming
+  `arn:aws:iam::997979358457:role/camedina-dev-github-app-role` in `eu-west-1` — no long-lived AWS
+  credential stored in Actions secrets), logs into ECR (`aws-actions/amazon-ecr-login@v2`), builds the
+  same `Dockerfile` and pushes it to ECR (`camedina-dev-clients-service`, tags `latest` and
+  `${{ github.sha }}`), then forces a new ECS deployment (`aws ecs update-service --force-new-deployment`
+  on cluster `camedina-dev-cluster` / service `camedina-dev-clients-service`). The IAM role/OIDC trust
+  relationship and the ECR repo/ECS cluster/service themselves are **not** created by this workflow —
+  they must already exist in the AWS account for it to succeed; nothing in this repo provisions them
+  (no Terraform/CDK yet).
+- **Known duplication, not yet cleaned up:** both workflows build the same `Dockerfile` on every push to
+  `main` — `ci-cd.yml` pushes it to GHCR, `deploy.yml` independently rebuilds and pushes it to ECR. GHCR
+  is effectively unused as a deploy source now that ECS pulls from ECR; worth collapsing to a single
+  build shared by both destinations (or dropping the GHCR push) rather than running two full Docker
+  builds per push indefinitely.

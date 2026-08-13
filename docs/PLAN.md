@@ -136,22 +136,34 @@ existing sub-resources) — still one feature vertical, not two.
   somewhere it actually runs is still open, see below. One manual one-time step this can't automate: a
   package pushed via `GITHUB_TOKEN` defaults to **private** regardless of the repo's public visibility —
   toggle it public in the package's own GHCR settings if it should be publicly pullable.
+- **Deploy target chosen: AWS ECS.** New `.github/workflows/deploy.yml` (`test` + `build-and-deploy`
+  jobs) closes the gap the CI/CD item above left open — triggers on push to `main`, re-runs `./mvnw test`,
+  then authenticates to AWS via OIDC (`aws-actions/configure-aws-credentials@v4` assuming
+  `arn:aws:iam::997979358457:role/camedina-dev-github-app-role` in `eu-west-1`, no static AWS credential
+  in Actions secrets), builds the same `Dockerfile`, pushes it to ECR (`camedina-dev-clients-service`),
+  and forces a new ECS deployment (`camedina-dev-cluster`/`camedina-dev-clients-service`). Written but
+  **not yet committed** (untracked in the working tree) and **not yet verified** — the IAM role/OIDC
+  trust and the ECR repo/ECS cluster/service must already exist in AWS for it to succeed, and none of
+  that's been confirmed live. Also duplicates the Docker build `ci-cd.yml` already does (that one still
+  pushes to GHCR, which nothing deploys from anymore) — see the next-step item below.
 
 ## Suggested next steps
 
 Roughly in the order they unblock each other; not a hard commitment, just a proposed path — revisit as
 priorities change.
 
-1. **Actually deploy the GHCR image somewhere.** CI/CD currently stops at "image is published to GHCR" —
-   nothing pulls and runs it. Needs a target platform decided (e.g. Fly.io/Render/a VPS over SSH) and,
-   once chosen, a follow-up job/workflow added to `ci-cd.yml` with whatever credentials that target needs
-   as GitHub Actions secrets.
-2. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
+1. **Commit and verify `deploy.yml`.** Confirm the `camedina-dev-github-app-role` OIDC trust and the
+   target ECR repo/ECS cluster/service actually exist in AWS, commit the workflow, then watch the first
+   real run on a push to `main` before relying on it.
+2. **Collapse the duplicate Docker build between `ci-cd.yml` and `deploy.yml`.** Both build the same
+   `Dockerfile` on every push to `main`; only the ECR one is actually deployed from now. Either stop
+   pushing to GHCR or have `deploy.yml` reuse a single built image instead of rebuilding it.
+3. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
    (DB calls, external HTTP) worth benefiting from it.
-3. **Roles/authorities**, once an endpoint actually needs to distinguish callers (e.g. an assignable-staff
+4. **Roles/authorities**, once an endpoint actually needs to distinguish callers (e.g. an assignable-staff
    concept for `Project`, now that a real `User`/principal exists) — today's auth is deliberately just
    authenticated-or-not.
-4. **Refresh tokens / logout**, if session length in practice turns out to need it — today's JWTs are
+5. **Refresh tokens / logout**, if session length in practice turns out to need it — today's JWTs are
    short-lived (`security.jwt.expiration`, default `PT1H`) with no revocation mechanism, which is fine for
    a portfolio service but worth flagging as a real gap for anything beyond that.
 
