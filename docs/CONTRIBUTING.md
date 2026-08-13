@@ -62,7 +62,10 @@ repo) lives in `CLAUDE.md` at the project root.
 ## Commits & PRs
 
 - Keep commits scoped to one logical change; write commit messages that explain *why*, not just *what*.
-- Run `./mvnw test` before opening a PR — there's no CI pipeline configured yet, so this is currently the
-  only gate.
+- Run `./mvnw test` before opening a PR — CI (`.github/workflows/ci-cd.yml`) re-runs `./mvnw verify` on
+  every push/PR against `main` and is the actual gate, but catching failures locally first saves a round
+  trip.
+- On merge to `main`, CI also builds and pushes the Docker image to GHCR
+  (`ghcr.io/alpoh/camedina-clients-services`) — no separate release step needed.
 - There's no issue tracker or PR template set up yet; a short PR description of the change and rationale
   is enough.

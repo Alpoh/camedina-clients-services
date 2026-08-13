@@ -126,14 +126,26 @@ existing sub-resources) — still one feature vertical, not two.
   manually via `spring-boot:run` + `curl` (register → 201 + token; duplicate email → 409; login with bad
   password → 401; `/api/v1/clients` without a token → 401, with one → 200; `/actuator/health` open
   without a token; Swagger's `/v3/api-docs` now 401 without one).
+- **CI/CD via GitHub Actions.** `.github/workflows/ci-cd.yml`: a `build` job runs `./mvnw verify` on every
+  push/PR against `main` (the previously-missing automated gate — Docker's available on the `ubuntu-latest`
+  runner, so `spring-boot-docker-compose` starting Postgres for the test suite works the same as locally).
+  A `docker` job (`needs: build`, gated to `push` events on `main` only — not PRs, not other branches)
+  builds the existing multi-stage `Dockerfile` and pushes it to GHCR as
+  `ghcr.io/alpoh/camedina-clients-services:latest` and `:<git-sha>`, authenticated with the workflow's own
+  `GITHUB_TOKEN` (`packages: write` permission) — no registry secret to manage. Deploying that image
+  somewhere it actually runs is still open, see below. One manual one-time step this can't automate: a
+  package pushed via `GITHUB_TOKEN` defaults to **private** regardless of the repo's public visibility —
+  toggle it public in the package's own GHCR settings if it should be publicly pullable.
 
 ## Suggested next steps
 
 Roughly in the order they unblock each other; not a hard commitment, just a proposed path — revisit as
 priorities change.
 
-1. **CI pipeline** (e.g. GitHub Actions) running `./mvnw verify` on push/PR — there's currently no
-   automated gate beyond running tests locally.
+1. **Actually deploy the GHCR image somewhere.** CI/CD currently stops at "image is published to GHCR" —
+   nothing pulls and runs it. Needs a target platform decided (e.g. Fly.io/Render/a VPS over SSH) and,
+   once chosen, a follow-up job/workflow added to `ci-cd.yml` with whatever credentials that target needs
+   as GitHub Actions secrets.
 2. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
    (DB calls, external HTTP) worth benefiting from it.
 3. **Roles/authorities**, once an endpoint actually needs to distinguish callers (e.g. an assignable-staff

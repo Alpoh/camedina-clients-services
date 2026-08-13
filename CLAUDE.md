@@ -311,3 +311,21 @@ piece of the stack actually exists — don't build the infrastructure for them s
 - `compose.yaml` is for local development dependencies only (databases, caches, message brokers) — not
   for running the application itself. Don't add the app's own service to `compose.yaml`; that's what
   `spring-boot-docker-compose` + `spring-boot:run` is for.
+
+## CI/CD
+
+`.github/workflows/ci-cd.yml`, two jobs:
+- `build` — runs `./mvnw verify` on every push/PR against `main`. Needs no special setup beyond
+  `actions/setup-java@v4` (Temurin 26) — `ubuntu-latest` ships Docker, so `spring-boot-docker-compose`
+  starting the real `postgres:17.2-alpine` from `compose.yaml` for the test suite works the same as it
+  does locally; no Testcontainers/H2 substitution needed.
+- `docker` — `needs: build`, gated with `if: github.event_name == 'push' && github.ref ==
+  'refs/heads/main'` so it never runs on PRs or other branches. Builds the existing `Dockerfile` and
+  pushes to GHCR (`ghcr.io/alpoh/camedina-clients-services`, tags `latest` and `${{ github.sha }}`),
+  authenticated via the workflow's own `secrets.GITHUB_TOKEN` with a job-scoped `packages: write`
+  permission — no registry credential to provision or rotate. A pushed GHCR package still defaults to
+  **private** even though the repo is public; that visibility toggle lives in the package's own GHCR
+  settings and can't be set from the workflow.
+- This publishes an image; nothing currently pulls and runs it anywhere (see `docs/PLAN.md`'s suggested
+  next steps for picking an actual deploy target). Don't add a deploy step here speculatively before a
+  target is chosen.

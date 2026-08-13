@@ -77,6 +77,10 @@ lives under `[Unreleased]`.
   Swagger now 401).
 - `SecurityIntegrationTest` (`@SpringBootTest`) — exercises the real `SecurityFilterChain` end to end
   (unauthenticated 401, valid token 200, token for a deleted/unknown user 401, `/actuator/health` open).
+- `.github/workflows/ci-cd.yml`: a `build` job runs `./mvnw verify` on every push/PR targeting `main`; a
+  `docker` job (needs `build`, only on pushes to `main`) builds the existing `Dockerfile` and pushes it to
+  GHCR as `ghcr.io/alpoh/camedina-clients-services:latest` and `:<git-sha>`, authenticated via the
+  workflow's own `GITHUB_TOKEN` (no manual secret needed for GHCR).
 
 ### Changed
 - `AuditableEntity`/`NotFoundException`/`ConflictException`/`GlobalExceptionHandler` moved from `client`
