@@ -81,6 +81,11 @@ lives under `[Unreleased]`.
   `docker` job (needs `build`, only on pushes to `main`) builds the existing `Dockerfile` and pushes it to
   GHCR as `ghcr.io/alpoh/camedina-clients-services:latest` and `:<git-sha>`, authenticated via the
   workflow's own `GITHUB_TOKEN` (no manual secret needed for GHCR).
+- `OpenApiConfig` (`auth` package): registers the `bearerAuth` HTTP-bearer security scheme springdoc
+  needs to render Swagger UI's Authorize button, applied as the default requirement on every operation.
+  `AuthController.register`/`login` carry `@SecurityRequirements` (empty) to override it back off, since
+  those two are actually `permitAll`. Previously no security scheme was registered at all, so Swagger UI
+  had no Authorize button despite every endpoint requiring a bearer token.
 - `security.swagger.permit-all` property (default `false`) plus `application-local.properties`
   (`SPRING_PROFILES_ACTIVE=local`, sets it `true`) so Swagger UI/`/v3/api-docs` can be reached without a
   bearer token for local exploration, without opening them in any real deployment (no `local` profile

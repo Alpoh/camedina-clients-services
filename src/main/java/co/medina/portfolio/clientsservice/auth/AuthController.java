@@ -1,5 +1,6 @@
 package co.medina.portfolio.clientsservice.auth;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,12 +17,14 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @SecurityRequirements
     @PostMapping("/register")
     ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         var token = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(token));
     }
 
+    @SecurityRequirements
     @PostMapping("/login")
     AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return new AuthResponse(authService.login(request));
