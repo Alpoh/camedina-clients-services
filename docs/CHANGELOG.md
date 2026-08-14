@@ -89,8 +89,12 @@ lives under `[Unreleased]`.
 - `security.swagger.permit-all` property (default `false`) plus `application-local.properties`
   (`SPRING_PROFILES_ACTIVE=local`, sets it `true`) so Swagger UI/`/v3/api-docs` can be reached without a
   bearer token for local exploration, without opening them in any real deployment (no `local` profile
-  activation exists in `deploy.yml`/`ci-cd.yml`). `SwaggerLocalProfileIntegrationTest` covers the open
-  case; `SecurityIntegrationTest` gained a case confirming the default (no profile) still 401s.
+  activation exists in `deploy.yml`/`ci-cd.yml`). `application-local.properties` is gitignored (personal,
+  per-developer file, never committed), so `SwaggerPermitAllIntegrationTest` sets the property directly
+  via `@TestPropertySource` rather than activating the `local` profile — activating the profile alone
+  would silently no-op in CI, where the gitignored file doesn't exist (caught by a real CI failure after
+  first landing this with `@ActiveProfiles("local")`). `SecurityIntegrationTest` gained a case confirming
+  the default (property unset) still 401s.
 
 ### Changed
 - `AuditableEntity`/`NotFoundException`/`ConflictException`/`GlobalExceptionHandler` moved from `client`
