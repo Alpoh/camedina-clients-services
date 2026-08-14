@@ -139,6 +139,28 @@ full list aimed at AI coding agents):
   so the healthcheck still verifies DB connectivity, not just "Tomcat is listening" — it previously
   reused the business `/api/v1/clients` route for the same reason, before actuator existed.
 
+## Deployment topology
+
+- `clients-service` is not internet-facing. It runs as an ECS task registered in a private Cloud Map DNS
+  namespace (`clients-service.dev.internal`, port 8080), provisioned by `ecs-cluster.yaml` in the
+  separate `clients-infra` repo (infra-as-code lives there, not in this repo — same as the ECS
+  cluster/service referenced in CI/CD, see `CLAUDE.md`).
+- The external admin/portal frontend (`clients-front`, also a separate repo) is the only component
+  behind the public ALB. Its ECS task is given `BACKEND_API_URL` pointing at the Cloud Map DNS name above
+  and calls `clients-service` **server-side** — the browser never talks to `clients-service` directly.
+- Task-to-task reachability is enforced by **security groups**, not a Docker bridge network:
+  `clients-front`'s security group is allowed to reach `clients-service`'s security group on port 8080,
+  and nothing else can. The nearest equivalent to "same Docker network" in this topology is same VPC +
+  private subnets + Cloud Map service discovery + that security group rule — there's no literal shared
+  network namespace the way `compose.yaml`'s services share one locally.
+- **Consequence for CORS**: because `clients-front` calls `clients-service` server-side rather than the
+  browser calling it directly, cross-origin requests never reach `clients-service` — CORS is a
+  browser-enforced restriction, and no browser traffic hits this API. No `CorsConfigurationSource` bean
+  is needed here as a result; see the CORS note in `CLAUDE.md`.
+- **Consequence for auth**: it's `clients-front`'s server-side code that holds/attaches the JWT
+  (`Authorization: Bearer <token>`) when calling `clients-service`, not browser-side JS — there is no
+  browser-side token-management concern for this API to account for.
+
 ## Testing strategy
 
 - `spring-boot-starter-webmvc-test` + `spring-boot-starter-data-jpa-test` (each transitively includes

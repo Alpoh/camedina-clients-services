@@ -248,9 +248,15 @@ piece of the stack actually exists — don't build the infrastructure for them s
   follows the same shape (`${SECURITY_JWT_SECRET:dev-only-...}` in `application.properties` — the
   fallback is a labeled dev-only placeholder, not a real secret, overridden via env var in any real
   deployment). Keep any future secret the same way.
-- **CORS: when a frontend/browser consumer exists**, configure explicit allowed origins per environment
-  (`CorsConfigurationSource` bean) rather than a wildcard `*` — there's no browser-facing consumer yet,
-  so nothing to configure today.
+- **CORS: likely never needed for this API.** The external admin/portal frontend (`clients-front`, a
+  separate repo) integrates as a server-side proxy, not a direct browser client: it runs as its own ECS
+  task, reaches `clients-service` over a private Cloud Map DNS name
+  (`clients-service.dev.internal:8080`, provisioned in the separate `clients-infra` repo's
+  `ecs-cluster.yaml`) gated by security groups, and only `clients-front` sits behind the public ALB. The
+  browser only ever talks to `clients-front`'s origin, never to `clients-service` directly — so there's
+  no cross-origin browser request for CORS to police here. If a *different*, genuinely browser-direct
+  consumer ever appears, configure explicit allowed origins per environment (`CorsConfigurationSource`
+  bean) then, rather than a wildcard `*`. See `docs/ARCHITECTURE.md`'s Deployment topology section.
 - **Rate limiting / backpressure: once this API is reachable from the public internet**, add it at the
   edge (gateway/ingress) or via a library (e.g. Bucket4j) rather than hand-rolling per-endpoint counters.
 - **TLS termination happens at the edge** (load balancer/ingress/reverse proxy), not in the Spring app
