@@ -61,8 +61,11 @@ real Postgres service, and `spring-boot-docker-compose` starts/wires it automati
   `RestAuthenticationEntryPoint`) reads the bearer token per request. `SecurityConfig`:
   `SessionCreationPolicy.STATELESS`, CSRF disabled (no cookies, nothing to forge), `/api/v1/auth/**` and
   `/actuator/health` `permitAll`, everything else `authenticated()` — this also locks down Swagger UI
-  and `/v3/api-docs`, and `/actuator/info`/`/actuator/metrics`, since there's no dev/staging profile
-  split to scope that to yet. `RestAuthenticationEntryPoint` returns a `ProblemDetail` 401 (not Spring
+  and `/v3/api-docs`, and `/actuator/info`/`/actuator/metrics`, by default. A `security.swagger.permit-all`
+  property (default `false`) additionally `permitAll`s `/swagger-ui/**`/`/v3/api-docs/**` when `true`;
+  `application-local.properties` sets it `true`, activated via `SPRING_PROFILES_ACTIVE=local` — local dev
+  convenience only, no `local` profile activation exists in `deploy.yml`/`ci-cd.yml`, so real deployments
+  stay locked down. `RestAuthenticationEntryPoint` returns a `ProblemDetail` 401 (not Spring
   Security's default plain-text 401) for requests that reach a protected endpoint unauthenticated;
   `GlobalExceptionHandler`'s `AuthenticationException` handler covers the other case — bad credentials on
   `POST /api/v1/auth/login`, a manual `AuthenticationManager.authenticate()` call outside the filter

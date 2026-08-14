@@ -30,6 +30,11 @@ Always use the Maven wrapper (`./mvnw`), not a system `mvn`, so builds use the v
 The first `test` or `spring-boot:run` will pull the `postgres:17.2-alpine` image, so expect it to be slower
 than subsequent runs.
 
+To browse Swagger UI (`/swagger-ui/index.html`) or `/v3/api-docs` without a bearer token locally, run
+with the `local` profile active, e.g. `SPRING_PROFILES_ACTIVE=local ./mvnw spring-boot:run`. Every other
+endpoint still requires auth even under `local` — see `docs/API.md`. Never set this profile in a deployed
+environment.
+
 `./mvnw test` also produces a JaCoCo coverage report at `target/site/jacoco/index.html` — open it in a
 browser to see line/branch coverage per class. JUnit 5, AssertJ, and Mockito come from
 `spring-boot-starter-test` already on the classpath; no extra test dependencies are needed to write

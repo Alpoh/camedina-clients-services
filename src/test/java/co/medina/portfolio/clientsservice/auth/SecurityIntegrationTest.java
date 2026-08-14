@@ -54,4 +54,10 @@ class SecurityIntegrationTest {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void swaggerUi_returns401_withoutToken_whenNotInLocalProfile() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isUnauthorized());
+    }
 }

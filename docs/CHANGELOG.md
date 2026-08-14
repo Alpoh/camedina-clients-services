@@ -81,6 +81,11 @@ lives under `[Unreleased]`.
   `docker` job (needs `build`, only on pushes to `main`) builds the existing `Dockerfile` and pushes it to
   GHCR as `ghcr.io/alpoh/camedina-clients-services:latest` and `:<git-sha>`, authenticated via the
   workflow's own `GITHUB_TOKEN` (no manual secret needed for GHCR).
+- `security.swagger.permit-all` property (default `false`) plus `application-local.properties`
+  (`SPRING_PROFILES_ACTIVE=local`, sets it `true`) so Swagger UI/`/v3/api-docs` can be reached without a
+  bearer token for local exploration, without opening them in any real deployment (no `local` profile
+  activation exists in `deploy.yml`/`ci-cd.yml`). `SwaggerLocalProfileIntegrationTest` covers the open
+  case; `SecurityIntegrationTest` gained a case confirming the default (no profile) still 401s.
 
 ### Changed
 - `AuditableEntity`/`NotFoundException`/`ConflictException`/`GlobalExceptionHandler` moved from `client`

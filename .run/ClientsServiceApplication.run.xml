@@ -1,5 +1,8 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="ClientsServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+    <envs>
+      <env name="SPRING_PROFILES_ACTIVE" value="local" />
+    </envs>
     <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
     <module name="clients-service" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="co.medina.portfolio.clientsservice.ClientsServiceApplication" />
