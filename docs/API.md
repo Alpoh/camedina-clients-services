@@ -10,8 +10,13 @@ reference below as more are added.
 **Interactive docs:** with the app running (`./mvnw spring-boot:run`), the full API is browsable at
 [`/swagger-ui/index.html`](http://localhost:8080/swagger-ui/index.html) (raw OpenAPI 3.1 spec at
 `/v3/api-docs`) — generated live from the controllers/DTOs/validation annotations via
-`springdoc-openapi-starter-webmvc-ui`, not hand-maintained. **Both now require a bearer token**, same as
-every other endpoint — see Auth below.
+`springdoc-openapi-starter-webmvc-ui`, not hand-maintained. **Both require a bearer token by default**,
+same as every other endpoint — see Auth below. Run with the `local` profile
+(`SPRING_PROFILES_ACTIVE=local ./mvnw spring-boot:run`) to browse/try them without one; never set that
+profile in a deployed environment. Swagger UI's Authorize button (padlock icon) accepts a raw token
+(register/login response, no `Bearer ` prefix) via the `bearerAuth` HTTP-bearer scheme declared in
+`OpenApiConfig` — `register`/`login` themselves are documented as not requiring it, matching their
+`permitAll` status below.
 
 **Auth:** every endpoint requires `Authorization: Bearer <token>` except `POST /api/v1/auth/register`,
 `POST /api/v1/auth/login`, and `GET /actuator/health`. Get a token via register or login (see the Auth
