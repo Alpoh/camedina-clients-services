@@ -19,7 +19,7 @@ public abstract class AuditableEntity {
 
     @PrePersist
     void onCreate() {
-        Instant now = Instant.now();
+        var now = Instant.now();
         createdAt = now;
         updatedAt = now;
     }

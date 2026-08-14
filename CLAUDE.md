@@ -189,6 +189,17 @@ first use. Requires Docker to be running locally; expect the first test run to b
 - **Records for DTOs/value objects.** Use `record` for request/response payloads and immutable value
   types instead of Lombok `@Data` classes — less generated code to reason about, and pairs naturally
   with Bean Validation (`record CreateClientRequest(@NotBlank String name, @Email String email) {}`).
+- **Imports: explicit single-class imports only, no wildcard imports** (`import foo.bar.*;`) — applies
+  equally to production and test code. Keeps `git diff`/review noise down (adding one new type only
+  touches one import line) and makes it obvious at a glance what a file actually depends on.
+- **`var` for local variables whenever the right-hand side already makes the type obvious** — constructor
+  calls (`var client = new Client(...)`), static factory methods (`var id = UUID.randomUUID()`,
+  `var page = PageRequest.of(0, 20)`), builder chains, etc. Applies in test code too (`var response =
+  mockMvc.perform(...)`, `var request = new CreateClientRequest(...)`), not just production code. Keep an
+  explicit type when the initializer doesn't make it obvious — a factory method returning an
+  interface/generic-named type, or a numeric literal where the exact type (`long` vs `int`) matters and
+  isn't visible from a bare literal. `var` isn't legal for fields, method parameters, or return types —
+  those keep explicit types as usual.
 - **Constructor injection only.** No field injection (`@Autowired` on fields). Lombok `@RequiredArgsConstructor`
   on `final` fields is fine for reducing boilerplate.
 - **Prefer `application.yml`/`.properties` profiles** (`application-dev.properties`, `application-prod.properties`)
@@ -210,6 +221,12 @@ first use. Requires Docker to be running locally; expect the first test run to b
   the full context. For tests needing real infra (DB, etc.), prefer Testcontainers over H2/mocks so
   tests match production behavior — pairs well with the `compose.yaml` services already used for local
   dev.
+- **TDD: write the test first.** For new behavior (a service method, a controller endpoint, a validation
+  rule) write a failing test that pins down the expected behavior before writing the implementation, then
+  make it pass, then refactor. For bug fixes, write a test that reproduces the bug (red) before touching
+  the fix (green) — it's the only way to be sure the fix actually addresses the reported behavior and
+  that it stays fixed. Applies to both `@WebMvcTest`/`@DataJpaTest` slice tests and plain Mockito unit
+  tests.
 - **Coverage:** `jacoco-maven-plugin` is bound to `./mvnw test` (`prepare-agent` + a `report` execution
   in the `test` phase, version pinned explicitly in `pom.xml` — `spring-boot-starter-parent` does not
   manage it, so an unpinned version resolves to "latest release" at build time, which Maven flags as
