@@ -10,7 +10,7 @@
     </parent>
     <groupId>co.medina.portfolio</groupId>
     <artifactId>clients-service</artifactId>
-    <version>0.0.4-SNAPSHOT</version>
+    <version>0.0.5-SNAPSHOT</version>
     <name>clients-service</name>
     <description>clients-service</description>
     <url/>
