@@ -5,7 +5,7 @@
 The `client` feature vertical is implemented: `Client` plus its `Phone`/`Address`/`Project`
 sub-resources, alongside `auth` (self-issued JWT authentication) — see `docs/ARCHITECTURE.md`. This
 document describes the conventions endpoints follow, and should be kept in sync with the real endpoint
-reference below as more are added.
+reference below as more are added. 
 
 **Interactive docs:** with the app running (`./mvnw spring-boot:run`), the full API is browsable at
 [`/swagger-ui/index.html`](http://localhost:8080/swagger-ui/index.html) (raw OpenAPI 3.1 spec at
