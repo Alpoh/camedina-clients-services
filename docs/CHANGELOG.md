@@ -19,7 +19,8 @@ lives under `[Unreleased]`.
 - `.dockerignore` for lean Docker build contexts.
 - Comprehensive `.gitignore` covering Java/Maven build artifacts, IntelliJ (`.idea/`, `.run/`, `out/`),
   Eclipse/STS, NetBeans, VS Code, env/secrets files, and OS cruft.
-- `docs/` folder (this changelog, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `API.md`, `PLAN.md`).
+- `docs/` folder (this changelog, `ARCHITECTURE.md`, `CONTRIBUTING.md`, `API.md`, `PLAN.md`,
+  `IMPLEMENTATION_PLAN.md`).
 - `jacoco-maven-plugin`, bound to `./mvnw test`, reporting coverage to `target/site/jacoco/`.
 - `spring-boot-starter-validation` for `@Valid`/Bean Validation annotations on request DTOs.
 - Flyway schema migrations: `spring-boot-starter-flyway` + `flyway-database-postgresql`, with
@@ -95,6 +96,12 @@ lives under `[Unreleased]`.
   would silently no-op in CI, where the gitignored file doesn't exist (caught by a real CI failure after
   first landing this with `@ActiveProfiles("local")`). `SecurityIntegrationTest` gained a case confirming
   the default (property unset) still 401s.
+- `docs/IMPLEMENTATION_PLAN.md` — the Spring Boot workstream of a cross-repo architecture review
+  (`clients-infra/docs/ARCHITECTURE_IMPROVEMENTS.md`), covering Phase 0 (readiness/liveness probes, JWT
+  secret fail-fast, graceful shutdown), Phase 2 (identity consolidation: `User` roles/`clientId`,
+  `@PreAuthorize`, refresh tokens), Phase 3 (transactional-outbox event backbone + SQS worker + async job
+  endpoints), Phase 4 (correlation IDs, JSON logging, tracing, metrics), and a table of smaller ongoing
+  items. `docs/PLAN.md`'s "Suggested next steps" now summarizes and links into it.
 
 ### Changed
 - `AuditableEntity`/`NotFoundException`/`ConflictException`/`GlobalExceptionHandler` moved from `client`

@@ -158,14 +158,47 @@ priorities change.
 2. **Collapse the duplicate Docker build between `ci-cd.yml` and `deploy.yml`.** Both build the same
    `Dockerfile` on every push to `main`; only the ECR one is actually deployed from now. Either stop
    pushing to GHCR or have `deploy.yml` reuse a single built image instead of rebuilding it.
-3. **Virtual threads.** Enable `spring.threads.virtual.enabled=true` once there's more I/O-bound work
-   (DB calls, external HTTP) worth benefiting from it.
-4. **Roles/authorities**, once an endpoint actually needs to distinguish callers (e.g. an assignable-staff
-   concept for `Project`, now that a real `User`/principal exists) — today's auth is deliberately just
-   authenticated-or-not.
-5. **Refresh tokens / logout**, if session length in practice turns out to need it — today's JWTs are
-   short-lived (`security.jwt.expiration`, default `PT1H`) with no revocation mechanism, which is fine for
-   a portfolio service but worth flagging as a real gap for anything beyond that.
+
+The rest of the backend roadmap is now tracked in detail in `docs/IMPLEMENTATION_PLAN.md` — the Spring
+Boot workstream of the cross-repo review in `clients-infra/docs/ARCHITECTURE_IMPROVEMENTS.md` (gap IDs
+`G1`…`G21` refer there). Summarized here, roughly in that doc's sequencing (Phase 0 → Phase 2 → Phase 3 →
+Phase 4, smaller items any time):
+
+3. **Phase 0 — correctness (~half a day).** Liveness/readiness actuator probe groups so ECS on Fargate
+   can tell "restart the task" apart from "stop routing to it" (G5); fail fast on startup if the JWT
+   secret is still the dev-only default outside `local`/`test` (G1); graceful shutdown
+   (`server.shutdown=graceful`) so in-flight requests survive ECS's `SIGTERM`.
+4. **Phase 2 — identity consolidation (~2 days), implements ADR-004, closes G4 + backend half of G7.**
+   Extend `User` with `role`/`display_name`/`client_id` (a `Role` enum, `ADMIN`/`CLIENT`) so a real
+   backend account carries what today only exists in `clients-front`'s mock user table; put `role`/`name`/
+   `clientId` in the JWT claims; enable `@EnableMethodSecurity` and add `@PreAuthorize` so a client can
+   only read their own data and only an admin can write (**the highest-value security change in the
+   plan** — today any authenticated user can read any client's data by guessing a UUID); add
+   `GET /api/v1/auth/me`; add refresh tokens + a real `POST /api/v1/auth/logout` (a `refresh_tokens`
+   table, rotation on use, revocation on logout) — supersedes the old "roles/authorities" and "refresh
+   tokens/logout" next-steps items here. RS256 + JWKS is an optional follow-up, only needed if Phase 5's
+   API Gateway JWT authorizer happens.
+5. **Phase 3 — event backbone (~3 days), implements ADR-002/ADR-003.** A transactional outbox
+   (`outbox_events` table, `OutboxRecorder` inside the business transaction, `OutboxPublisher` polling
+   with `FOR UPDATE SKIP LOCKED` → SNS) so domain events (`ProjectStatusChanged`, `UserRegistered`,
+   `BulkImportRequested`) are never lost on rollback and never block the request path on an AWS call; a
+   new `worker/` package (`@SqsListener`s, idempotent via a `processed_events` table) deployed as a
+   separate `clients-worker` ECS service on a `worker` Spring profile; async job endpoints
+   (`POST /api/v1/imports`, `POST /api/v1/projects/{id}/report`) following submit → `202` + job id → poll
+   → result; SES email notifications on project-status changes.
+6. **Phase 4 — observability (~2 days).** Correlation IDs (`X-Request-Id` → SLF4J MDC → carried through
+   the outbox into the worker) (G10); JSON logging in deployed profiles (G11); OpenTelemetry tracing
+   (auto-instruments Tomcat/JDBC/`RestClient`/SQS); Micrometer business counters
+   (`projects.status.changed`, `outbox.published`/`.failed`, `import.rows.processed`).
+7. **Ongoing / smaller items, any time.** Virtual threads
+   (`spring.threads.virtual.enabled=true` — finally has real I/O-bound work worth benchmarking once Phase
+   3 lands); optimistic locking (`@Version` + `409` mapping) so two admins editing one project stop
+   silently losing a write (G20); rate-limit `/auth/login` (G14); a least-privilege `app_user` DB role
+   instead of running as the RDS master user; stable `ProblemDetail` `type` URIs instead of
+   `about:blank`; cap `Pageable` page size to prevent a `?size=1000000` DoS; a CI contract-test step that
+   dumps `/v3/api-docs` and fails on an uncommitted diff, feeding the frontend's generated client (G12);
+   Testcontainers instead of the current `spring-boot-docker-compose`-in-tests approach (optional, current
+   approach is defensible).
 
 ## How to update this doc
 

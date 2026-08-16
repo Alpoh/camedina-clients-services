@@ -111,7 +111,14 @@ Human-facing docs live in `docs/` — keep them (and this file) accurate to actu
 land, not just aspirational:
 
 - `docs/PLAN.md` — what's done and the proposed next steps to move the project forward. Check this
-  first when picking up work; update it as items land.
+  first when picking up work; update it as items land. Its "Suggested next steps" summarizes and links
+  into `docs/IMPLEMENTATION_PLAN.md` for the fuller architecture roadmap.
+- `docs/IMPLEMENTATION_PLAN.md` — this repo's workstream of a cross-repo architecture review
+  (`clients-infra/docs/ARCHITECTURE_IMPROVEMENTS.md`; sibling plans live in `clients-infra`'s and
+  `clients-front`'s own `docs/IMPLEMENTATION_PLAN.md`), phased (0, 2, 3, 4) with gap IDs (`G1`…`G21`)
+  tying back to that review. `docs/PLAN.md` remains the day-to-day status doc; this one is about *new
+  architecture* not yet started — strike/move items into `docs/PLAN.md`/`docs/ARCHITECTURE.md`/
+  `docs/CHANGELOG.md` as phases actually land, per its own "How to update this doc" section.
 - `docs/CHANGELOG.md` — Keep a Changelog-style history, grouped under `[Unreleased]` until there's a
   first tagged release.
 - `docs/ARCHITECTURE.md` — tech stack, package-by-feature convention, persistence/Docker/testing design.
