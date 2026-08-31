@@ -284,7 +284,10 @@ piece of the stack actually exists — don't build the infrastructure for them s
 - **Rate limiting / backpressure: once this API is reachable from the public internet**, add it at the
   edge (gateway/ingress) or via a library (e.g. Bucket4j) rather than hand-rolling per-endpoint counters.
 - **TLS termination happens at the edge** (load balancer/ingress/reverse proxy), not in the Spring app
-  itself — don't add an embedded-Tomcat SSL config for this.
+  itself — don't add an embedded-Tomcat SSL config for this. `server.forward-headers-strategy=framework`
+  (`application.properties`) makes the app trust `X-Forwarded-Proto`/`-Host`/`-Port` set by that
+  terminating proxy, so `isSecure()`/redirects/secure-cookie logic reflect the original HTTPS request
+  rather than the internal HTTP hop.
 - **Health/readiness probes:** `spring-boot-starter-actuator` is wired in; the Dockerfile `HEALTHCHECK`
   targets `/actuator/health`, and any future orchestrator's liveness/readiness checks should do the same
   instead of a hand-rolled ping endpoint.
