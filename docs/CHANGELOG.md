@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file. The format is b
 [Semantic Versioning](https://semver.org/) once it has its first release — until then, everything below
 lives under `[Unreleased]`.
 
-## [Unreleased] — 0.0.3-SNAPSHOT
+## [Unreleased] — 0.0.6-SNAPSHOT
 
 ### Added
 - `spring-boot-starter-web`, replacing the bare `spring-boot-starter` (pulled in transitively). The app
@@ -104,6 +104,14 @@ lives under `[Unreleased]`.
   items. `docs/PLAN.md`'s "Suggested next steps" now summarizes and links into it.
 
 ### Changed
+- Clarified the "TLS termination happens at the edge" note in `CLAUDE.md` after `clients-infra` added a
+  CloudFront distribution in front of the ALB (`cloudfront.yaml`) to fix `clients-front`'s `Secure`
+  session cookies being dropped over plain HTTP. Confirmed `clients-service` is not behind that ALB or
+  CloudFront at all — only `clients-front` is — and `clients-front` still calls `clients-service`
+  server-side over the private Cloud Map DNS name in plain HTTP, with no proxy hop in between. Briefly
+  added `server.forward-headers-strategy=framework` to trust a forwarded `X-Forwarded-Proto`, then
+  reverted it once this was confirmed: with no proxy on that path, the setting would be inert. No
+  functional change to the running app; net diff is the corrected doc note.
 - `AuditableEntity`/`NotFoundException`/`ConflictException`/`GlobalExceptionHandler` moved from `client`
   to a new shared `common` package — `auth` becoming a second, genuinely independent feature vertical
   triggered the hoist `docs/PLAN.md` had flagged as the eventual trigger.

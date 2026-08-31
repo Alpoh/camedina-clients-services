@@ -54,10 +54,50 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-      - name: Force new ECS deployment
+      - name: Power on both services + force new deployment
+        env:
+          POWER_ON_HOURS: '1'
+          PEER_ECS_SERVICE: camedina-dev-clients-front
         run: |
           aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --desired-count 1 \
             --force-new-deployment \
-            --region $AWS_REGION
+            --region "$AWS_REGION" >/dev/null
+
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$PEER_ECS_SERVICE" \
+            --desired-count 1 \
+            --region "$AWS_REGION" >/dev/null
+
+          ROLE_ARN=$(aws cloudformation list-exports --region "$AWS_REGION" \
+            --query "Exports[?Name=='dev-power-off-scheduler-role-arn'].Value" --output text)
+          OFF_AT=$(date -u -d "+${POWER_ON_HOURS} hour" +%Y-%m-%dT%H:%M:%S)
+
+          schedule_power_off() {
+            local service_name=$1
+            local short_name=${service_name#camedina-dev-}
+            local schedule_name="camedina-dev-power-off-${short_name}"
+            aws scheduler delete-schedule --region "$AWS_REGION" --name "$schedule_name" >/dev/null 2>&1 || true
+
+            local input_json="{\"Cluster\":\"${ECS_CLUSTER}\",\"Service\":\"${service_name}\",\"DesiredCount\":0}"
+            local escaped_input="${input_json//\"/\\\"}"
+            local target_file
+            target_file=$(mktemp)
+            printf '{"Arn":"arn:aws:scheduler:::aws-sdk:ecs:updateService","RoleArn":"%s","Input":"%s"}' \
+              "$ROLE_ARN" "$escaped_input" > "$target_file"
+
+            aws scheduler create-schedule --region "$AWS_REGION" \
+              --name "$schedule_name" \
+              --schedule-expression "at(${OFF_AT})" \
+              --flexible-time-window Mode=OFF \
+              --action-after-completion DELETE \
+              --target "file://${target_file}" >/dev/null
+          }
+
+          schedule_power_off "$ECS_SERVICE"
+          schedule_power_off "$PEER_ECS_SERVICE"
+
+          echo "Both services powered on. Auto power-off scheduled for ${OFF_AT} UTC."
