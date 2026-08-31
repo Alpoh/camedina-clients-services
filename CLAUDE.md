@@ -284,10 +284,14 @@ piece of the stack actually exists — don't build the infrastructure for them s
 - **Rate limiting / backpressure: once this API is reachable from the public internet**, add it at the
   edge (gateway/ingress) or via a library (e.g. Bucket4j) rather than hand-rolling per-endpoint counters.
 - **TLS termination happens at the edge** (load balancer/ingress/reverse proxy), not in the Spring app
-  itself — don't add an embedded-Tomcat SSL config for this. `server.forward-headers-strategy=framework`
-  (`application.properties`) makes the app trust `X-Forwarded-Proto`/`-Host`/`-Port` set by that
-  terminating proxy, so `isSecure()`/redirects/secure-cookie logic reflect the original HTTPS request
-  rather than the internal HTTP hop.
+  itself — don't add an embedded-Tomcat SSL config for this. In this deployment, though, "the edge" is
+  in front of `clients-front` only: `clients-infra`'s `cloudfront.yaml` puts CloudFront (default
+  `*.cloudfront.net` cert) in front of the ALB, which fronts `clients-front`, to fix that app's `Secure`
+  session cookies getting dropped by browsers over plain HTTP — `clients-service` is not behind that ALB
+  or CloudFront at all (see Deployment topology in `docs/ARCHITECTURE.md`). `clients-front` calls
+  `clients-service` server-side over the private Cloud Map DNS name, in plain HTTP, with no proxy hop in
+  between — so there is no `X-Forwarded-Proto` for this app to trust, and no `server.forward-headers-strategy`
+  setting is needed here (it would be inert: nothing on this path ever sets that header).
 - **Health/readiness probes:** `spring-boot-starter-actuator` is wired in; the Dockerfile `HEALTHCHECK`
   targets `/actuator/health`, and any future orchestrator's liveness/readiness checks should do the same
   instead of a hand-rolled ping endpoint.
