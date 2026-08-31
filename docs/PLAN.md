@@ -136,26 +136,27 @@ existing sub-resources) — still one feature vertical, not two.
   somewhere it actually runs is still open, see below. One manual one-time step this can't automate: a
   package pushed via `GITHUB_TOKEN` defaults to **private** regardless of the repo's public visibility —
   toggle it public in the package's own GHCR settings if it should be publicly pullable.
-- **Deploy target chosen: AWS ECS.** New `.github/workflows/deploy.yml` (`test` + `build-and-deploy`
-  jobs) closes the gap the CI/CD item above left open — triggers on push to `main`, re-runs `./mvnw test`,
+- **Deploy target chosen: AWS ECS.** `.github/workflows/deploy.yml` (`test` + `build-and-deploy` jobs)
+  closes the gap the CI/CD item above left open — triggers on push to `main`, re-runs `./mvnw test`,
   then authenticates to AWS via OIDC (`aws-actions/configure-aws-credentials@v4` assuming
   `arn:aws:iam::997979358457:role/camedina-dev-github-app-role` in `eu-west-1`, no static AWS credential
-  in Actions secrets), builds the same `Dockerfile`, pushes it to ECR (`camedina-dev-clients-service`),
-  and forces a new ECS deployment (`camedina-dev-cluster`/`camedina-dev-clients-service`). Written but
-  **not yet committed** (untracked in the working tree) and **not yet verified** — the IAM role/OIDC
-  trust and the ECR repo/ECS cluster/service must already exist in AWS for it to succeed, and none of
-  that's been confirmed live. Also duplicates the Docker build `ci-cd.yml` already does (that one still
-  pushes to GHCR, which nothing deploys from anymore) — see the next-step item below.
+  in Actions secrets), builds the same `Dockerfile`, and pushes it to ECR (`camedina-dev-clients-service`).
+  Committed and running on every push to `main`. Also duplicates the Docker build `ci-cd.yml` already
+  does (that one still pushes to GHCR, which nothing deploys from anymore) — see the next-step item
+  below.
+- **Dev cost control: power-on + scheduled power-off.** `deploy.yml`'s last step no longer just forces a
+  new ECS deployment — it sets `desired-count=1` for both `clients-service` and its peer
+  `clients-front` service (deploying this one alone is useless if the front is scaled to 0), then
+  schedules a one-shot EventBridge Scheduler job per service to scale it back to 0 an hour later. Both
+  `dev` services default to scaled-to-0 between deploys to avoid idle Fargate cost — mirrors
+  `clients-infra`'s own power-on/off tooling. See `CLAUDE.md`'s CI/CD section for the full mechanics.
 
 ## Suggested next steps
 
 Roughly in the order they unblock each other; not a hard commitment, just a proposed path — revisit as
 priorities change.
 
-1. **Commit and verify `deploy.yml`.** Confirm the `camedina-dev-github-app-role` OIDC trust and the
-   target ECR repo/ECS cluster/service actually exist in AWS, commit the workflow, then watch the first
-   real run on a push to `main` before relying on it.
-2. **Collapse the duplicate Docker build between `ci-cd.yml` and `deploy.yml`.** Both build the same
+1. **Collapse the duplicate Docker build between `ci-cd.yml` and `deploy.yml`.** Both build the same
    `Dockerfile` on every push to `main`; only the ECR one is actually deployed from now. Either stop
    pushing to GHCR or have `deploy.yml` reuse a single built image instead of rebuilding it.
 
@@ -164,11 +165,11 @@ Boot workstream of the cross-repo review in `clients-infra/docs/ARCHITECTURE_IMP
 `G1`…`G21` refer there). Summarized here, roughly in that doc's sequencing (Phase 0 → Phase 2 → Phase 3 →
 Phase 4, smaller items any time):
 
-3. **Phase 0 — correctness (~half a day).** Liveness/readiness actuator probe groups so ECS on Fargate
+2. **Phase 0 — correctness (~half a day).** Liveness/readiness actuator probe groups so ECS on Fargate
    can tell "restart the task" apart from "stop routing to it" (G5); fail fast on startup if the JWT
    secret is still the dev-only default outside `local`/`test` (G1); graceful shutdown
    (`server.shutdown=graceful`) so in-flight requests survive ECS's `SIGTERM`.
-4. **Phase 2 — identity consolidation (~2 days), implements ADR-004, closes G4 + backend half of G7.**
+3. **Phase 2 — identity consolidation (~2 days), implements ADR-004, closes G4 + backend half of G7.**
    Extend `User` with `role`/`display_name`/`client_id` (a `Role` enum, `ADMIN`/`CLIENT`) so a real
    backend account carries what today only exists in `clients-front`'s mock user table; put `role`/`name`/
    `clientId` in the JWT claims; enable `@EnableMethodSecurity` and add `@PreAuthorize` so a client can
@@ -178,7 +179,7 @@ Phase 4, smaller items any time):
    table, rotation on use, revocation on logout) — supersedes the old "roles/authorities" and "refresh
    tokens/logout" next-steps items here. RS256 + JWKS is an optional follow-up, only needed if Phase 5's
    API Gateway JWT authorizer happens.
-5. **Phase 3 — event backbone (~3 days), implements ADR-002/ADR-003.** A transactional outbox
+4. **Phase 3 — event backbone (~3 days), implements ADR-002/ADR-003.** A transactional outbox
    (`outbox_events` table, `OutboxRecorder` inside the business transaction, `OutboxPublisher` polling
    with `FOR UPDATE SKIP LOCKED` → SNS) so domain events (`ProjectStatusChanged`, `UserRegistered`,
    `BulkImportRequested`) are never lost on rollback and never block the request path on an AWS call; a
@@ -186,11 +187,11 @@ Phase 4, smaller items any time):
    separate `clients-worker` ECS service on a `worker` Spring profile; async job endpoints
    (`POST /api/v1/imports`, `POST /api/v1/projects/{id}/report`) following submit → `202` + job id → poll
    → result; SES email notifications on project-status changes.
-6. **Phase 4 — observability (~2 days).** Correlation IDs (`X-Request-Id` → SLF4J MDC → carried through
+5. **Phase 4 — observability (~2 days).** Correlation IDs (`X-Request-Id` → SLF4J MDC → carried through
    the outbox into the worker) (G10); JSON logging in deployed profiles (G11); OpenTelemetry tracing
    (auto-instruments Tomcat/JDBC/`RestClient`/SQS); Micrometer business counters
    (`projects.status.changed`, `outbox.published`/`.failed`, `import.rows.processed`).
-7. **Ongoing / smaller items, any time.** Virtual threads
+6. **Ongoing / smaller items, any time.** Virtual threads
    (`spring.threads.virtual.enabled=true` — finally has real I/O-bound work worth benchmarking once Phase
    3 lands); optimistic locking (`@Version` + `409` mapping) so two admins editing one project stop
    silently losing a write (G20); rate-limit `/auth/login` (G14); a least-privilege `app_user` DB role

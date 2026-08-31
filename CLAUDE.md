@@ -375,11 +375,19 @@ Two separate workflow files under `.github/workflows/` — not yet consolidated,
   `arn:aws:iam::997979358457:role/camedina-dev-github-app-role` in `eu-west-1` — no long-lived AWS
   credential stored in Actions secrets), logs into ECR (`aws-actions/amazon-ecr-login@v2`), builds the
   same `Dockerfile` and pushes it to ECR (`camedina-dev-clients-service`, tags `latest` and
-  `${{ github.sha }}`), then forces a new ECS deployment (`aws ecs update-service --force-new-deployment`
-  on cluster `camedina-dev-cluster` / service `camedina-dev-clients-service`). The IAM role/OIDC trust
-  relationship and the ECR repo/ECS cluster/service themselves are **not** created by this workflow —
-  they must already exist in the AWS account for it to succeed; nothing in this repo provisions them
-  (no Terraform/CDK yet).
+  `${{ github.sha }}`). The IAM role/OIDC trust relationship and the ECR repo/ECS cluster/service
+  themselves are **not** created by this workflow — they must already exist in the AWS account for it to
+  succeed; nothing in this repo provisions them (no Terraform/CDK yet).
+- **Dev cost control: power-on + scheduled power-off, both services.** Rather than a plain
+  `aws ecs update-service --force-new-deployment`, the last step sets `desired-count=1` (powers on) for
+  both `camedina-dev-clients-service` *and* its peer `camedina-dev-clients-front` — deploying this
+  service alone is useless if the front is scaled to 0, since `clients-front` is what actually calls it
+  — then schedules a one-shot EventBridge Scheduler job per service (`aws scheduler create-schedule`,
+  deleting any prior schedule of the same name first) that scales it back to 0 after `POWER_ON_HOURS`
+  (currently `1`). The scheduler's invocation role ARN is read from the
+  `dev-power-off-scheduler-role-arn` CloudFormation export. Mirrors `clients-infra`'s own power-on/off
+  cost-control setup (`scripts/power-on.sh`, `templates/scheduler.yaml`) — both ECS services in `dev`
+  default to scaled-to-0 and only run for about an hour around each deploy, to avoid idle Fargate cost.
 - **Known duplication, not yet cleaned up:** both workflows build the same `Dockerfile` on every push to
   `main` — `ci-cd.yml` pushes it to GHCR, `deploy.yml` independently rebuilds and pushes it to ECR. GHCR
   is effectively unused as a deploy source now that ECS pulls from ECR; worth collapsing to a single

@@ -82,6 +82,15 @@ lives under `[Unreleased]`.
   `docker` job (needs `build`, only on pushes to `main`) builds the existing `Dockerfile` and pushes it to
   GHCR as `ghcr.io/alpoh/camedina-clients-services:latest` and `:<git-sha>`, authenticated via the
   workflow's own `GITHUB_TOKEN` (no manual secret needed for GHCR).
+- `.github/workflows/deploy.yml`: the actual AWS ECS deploy target — `test` + `build-and-deploy` jobs,
+  triggers on push to `main`, authenticates via OIDC (no static AWS credential in Actions secrets),
+  builds the same `Dockerfile`, and pushes it to ECR (`camedina-dev-clients-service`).
+- Dev cost control in `deploy.yml`: instead of a plain forced ECS redeploy, the workflow sets
+  `desired-count=1` (powers on) for both `clients-service` and its peer `clients-front` ECS service —
+  deploying this one alone is useless if the front is scaled to 0 — then schedules a one-shot EventBridge
+  Scheduler job per service to scale it back to 0 an hour later. Both `dev` services default to
+  scaled-to-0 between deploys to avoid idle Fargate cost; mirrors `clients-infra`'s own power-on/off
+  tooling (`scripts/power-on.sh`, `templates/scheduler.yaml`).
 - `OpenApiConfig` (`auth` package): registers the `bearerAuth` HTTP-bearer security scheme springdoc
   needs to render Swagger UI's Authorize button, applied as the default requirement on every operation.
   `AuthController.register`/`login` carry `@SecurityRequirements` (empty) to override it back off, since
