@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import co.medina.portfolio.clientsservice.common.ConflictException;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,24 +49,33 @@ class AuthServiceTest {
     }
 
     @Test
-    void register_savesUserWithEncodedPassword_andReturnsToken() {
+    void register_savesUserWithEncodedPasswordAndClientRole_andReturnsAuthResponse() {
         when(userRepository.existsByEmail("jane@example.com")).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("encoded-password");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(jwtService.generateToken("jane@example.com")).thenReturn("a-jwt");
         var request = new RegisterRequest("jane@example.com", "password123");
 
-        var token = authService.register(request);
+        var response = authService.register(request);
 
-        assertThat(token).isEqualTo("a-jwt");
+        assertThat(response.token()).isEqualTo("a-jwt");
+        assertThat(response.role()).isEqualTo(Role.CLIENT);
     }
 
     @Test
-    void login_returnsToken_whenCredentialsValid() {
+    void login_returnsAuthResponse_whenCredentialsValid() {
+        var userId = UUID.randomUUID();
+        var user = new User("jane@example.com", "encoded-password", Role.ADMIN);
+        user.setId(userId);
+        when(userRepository.findByEmail("jane@example.com")).thenReturn(Optional.of(user));
         when(jwtService.generateToken("jane@example.com")).thenReturn("a-jwt");
         var request = new LoginRequest("jane@example.com", "password123");
 
-        assertThat(authService.login(request)).isEqualTo("a-jwt");
+        var response = authService.login(request);
+
+        assertThat(response.token()).isEqualTo("a-jwt");
+        assertThat(response.id()).isEqualTo(userId);
+        assertThat(response.role()).isEqualTo(Role.ADMIN);
     }
 
     @Test

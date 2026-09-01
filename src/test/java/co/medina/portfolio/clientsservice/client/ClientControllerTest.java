@@ -69,6 +69,15 @@ class ClientControllerTest {
     }
 
     @Test
+    void findByEmail_returns404ProblemDetail_whenClientNotFound() throws Exception {
+        when(clientService.findByEmail("jane@example.com"))
+                .thenThrow(new NotFoundException("Client with email jane@example.com not found"));
+
+        mockMvc.perform(get("/api/v1/clients/by-email/{email}", "jane@example.com"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void findAll_returns200WithPagedBody() throws Exception {
         when(clientService.findAll(any())).thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
 

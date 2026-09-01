@@ -16,7 +16,7 @@ class UserRepositoryTest {
 
     @Test
     void existsByEmail_returnsTrue_whenEmailAlreadyPersisted() {
-        userRepository.save(new User("jane@example.com", "hashed-password"));
+        userRepository.save(new User("jane@example.com", "hashed-password", Role.CLIENT));
 
         assertThat(userRepository.existsByEmail("jane@example.com")).isTrue();
     }

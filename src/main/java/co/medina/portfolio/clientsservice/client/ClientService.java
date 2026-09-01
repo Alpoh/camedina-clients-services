@@ -37,6 +37,12 @@ public class ClientService {
         return clientRepository.findAll(pageable);
     }
 
+    @Transactional(readOnly = true)
+    public Client findByEmail(String email) {
+        return clientRepository.findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("Client with email " + email + " not found"));
+    }
+
     @Transactional
     public Client update(UUID id, ClientRequest request) {
         var client = findById(id);

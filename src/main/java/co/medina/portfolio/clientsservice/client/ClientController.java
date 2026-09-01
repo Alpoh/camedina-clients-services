@@ -41,6 +41,11 @@ public class ClientController {
         return ClientResponse.from(clientService.findById(id));
     }
 
+    @GetMapping("/by-email/{email}")
+    ClientResponse findByEmail(@PathVariable String email) {
+        return ClientResponse.from(clientService.findByEmail(email));
+    }
+
     @GetMapping
     Page<ClientResponse> findAll(@ParameterObject Pageable pageable) {
         return clientService.findAll(pageable).map(ClientResponse::from);

@@ -1,4 +1,6 @@
 package co.medina.portfolio.clientsservice.auth;
 
-public record AuthResponse(String token) {
+import java.util.UUID;
+
+public record AuthResponse(String token, UUID id, Role role) {
 }

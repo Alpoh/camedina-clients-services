@@ -61,6 +61,14 @@ class ClientServiceTest {
     }
 
     @Test
+    void findByEmail_throwsNotFoundException_whenEmailUnknown() {
+        when(clientRepository.findByEmail("jane@example.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> clientService.findByEmail("jane@example.com"))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
     void delete_throwsNotFoundException_whenIdUnknown() {
         var id = UUID.randomUUID();
         when(clientRepository.findById(id)).thenReturn(Optional.empty());

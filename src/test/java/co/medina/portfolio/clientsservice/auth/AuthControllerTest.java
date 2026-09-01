@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import co.medina.portfolio.clientsservice.common.ConflictException;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -32,14 +33,16 @@ class AuthControllerTest {
 
     @Test
     void register_returns201WithToken_whenRequestValid() throws Exception {
-        when(authService.register(any(RegisterRequest.class))).thenReturn("a-jwt");
+        when(authService.register(any(RegisterRequest.class)))
+                .thenReturn(new AuthResponse("a-jwt", UUID.randomUUID(), Role.CLIENT));
         var body = objectMapper.writeValueAsString(new RegisterRequest("jane@example.com", "password123"));
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.token").value("a-jwt"));
+                .andExpect(jsonPath("$.token").value("a-jwt"))
+                .andExpect(jsonPath("$.role").value("client"));
     }
 
     @Test
@@ -66,14 +69,16 @@ class AuthControllerTest {
 
     @Test
     void login_returns200WithToken_whenCredentialsValid() throws Exception {
-        when(authService.login(any(LoginRequest.class))).thenReturn("a-jwt");
+        when(authService.login(any(LoginRequest.class)))
+                .thenReturn(new AuthResponse("a-jwt", UUID.randomUUID(), Role.ADMIN));
         var body = objectMapper.writeValueAsString(new LoginRequest("jane@example.com", "password123"));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("a-jwt"));
+                .andExpect(jsonPath("$.token").value("a-jwt"))
+                .andExpect(jsonPath("$.role").value("admin"));
     }
 
     @Test

@@ -20,13 +20,12 @@ public class AuthController {
     @SecurityRequirements
     @PostMapping("/register")
     ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        var token = authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(token));
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
     @SecurityRequirements
     @PostMapping("/login")
     AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        return new AuthResponse(authService.login(request));
+        return authService.login(request);
     }
 }

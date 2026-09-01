@@ -34,7 +34,7 @@ class SecurityIntegrationTest {
 
     @Test
     void protectedEndpoint_returns200_withValidToken() throws Exception {
-        userRepository.save(new User("security-it@example.com", "irrelevant-hash"));
+        userRepository.save(new User("security-it@example.com", "irrelevant-hash", Role.CLIENT));
         var token = jwtService.generateToken("security-it@example.com");
 
         mockMvc.perform(get("/api/v1/clients").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))

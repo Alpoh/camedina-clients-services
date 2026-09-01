@@ -4,6 +4,7 @@ import co.medina.portfolio.clientsservice.common.ConflictException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,18 +19,22 @@ public class AuthService {
     private final JwtService jwtService;
 
     @Transactional
-    public String register(RegisterRequest request) {
+    public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new ConflictException("A user with email " + request.email() + " already exists");
         }
-        var user = new User(request.email(), passwordEncoder.encode(request.password()));
+        var user = new User(request.email(), passwordEncoder.encode(request.password()), Role.CLIENT);
         userRepository.save(user);
-        return jwtService.generateToken(user.getEmail());
+        var token = jwtService.generateToken(user.getEmail());
+        return new AuthResponse(token, user.getId(), user.getRole());
     }
 
-    public String login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.email(), request.password()));
-        return jwtService.generateToken(request.email());
+        var user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new UsernameNotFoundException("No user with email " + request.email()));
+        var token = jwtService.generateToken(user.getEmail());
+        return new AuthResponse(token, user.getId(), user.getRole());
     }
 }
